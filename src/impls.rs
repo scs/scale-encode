@@ -25,7 +25,65 @@ use std::rc::Rc;
 use std::marker::PhantomData;
 use core::ops::{ Range, RangeInclusive };
 use std::time::Duration;
+use std::collections::{
+    BTreeMap, BTreeSet, BinaryHeap, VecDeque, LinkedList
+};
 
+impl EncodeAsType for bool {
+    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+        let type_id = find_single_entry_with_same_repr(type_id, types).unwrap_or(type_id);
+        let ty = types
+            .resolve(type_id)
+            .ok_or_else(|| Error::new(&context, ErrorKind::TypeNotFound(type_id)))?;
+
+        if let TypeDef::Primitive(TypeDefPrimitive::Bool) = ty.type_def() {
+            self.encode_to(out);
+            Ok(())
+        } else {
+            Err(Error::new(context, ErrorKind::WrongShape { actual: Kind::Bool, expected: type_id }))
+        }
+    }
+}
+
+impl EncodeAsType for str {
+    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+        let type_id = find_single_entry_with_same_repr(type_id, types).unwrap_or(type_id);
+        let ty = types
+            .resolve(type_id)
+            .ok_or_else(|| Error::new(&context, ErrorKind::TypeNotFound(type_id)))?;
+
+        if let TypeDef::Primitive(TypeDefPrimitive::Str) = ty.type_def() {
+            self.encode_to(out);
+            Ok(())
+        } else {
+            Err(Error::new(context, ErrorKind::WrongShape { actual: Kind::Str, expected: type_id }))
+        }
+    }
+}
+
+impl <'a, T> EncodeAsType for &'a T where T: EncodeAsType {
+    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+        (*self).encode_as_type_to(type_id, types, context, out)
+    }
+}
+
+impl <'a, T> EncodeAsType for std::borrow::Cow<'a, T> where T: EncodeAsType + Clone {
+    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+        (**self).encode_as_type_to(type_id, types, context, out)
+    }
+}
+
+impl <T> EncodeAsType for [T] where T: EncodeAsType {
+    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+        encode_iterable_sequence_to(self.len(), self.iter(), type_id, types, context, out)
+    }
+}
+
+impl <const N: usize, T: EncodeAsType> EncodeAsType for [T; N] {
+    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+		self[..].encode_as_type_to(type_id, types, context, out)
+    }
+}
 
 // Encode any numeric type implementing ToNumber, above, into the type ID given.
 macro_rules! impl_encode_number {
@@ -264,95 +322,24 @@ macro_rules! impl_encode_basic_enum {
 impl_encode_basic_enum!(Option<T>: Some(val), None);
 impl_encode_basic_enum!(Result<T, E>: Ok(val), Err(e));
 
-impl <T> EncodeAsType for [T] where T: EncodeAsType {
-    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
-        let ty = types
-            .resolve(type_id)
-            .ok_or_else(|| Error::new(&context, ErrorKind::TypeNotFound(type_id)))?;
-
-        match ty.type_def() {
-            TypeDef::Array(arr) => {
-                if arr.len() == self.len() as u32 {
-                    for (idx, item) in self.iter().enumerate() {
-                        let mut context = context.clone();
-                        context.push_idx(idx);
-                        item.encode_as_type_to(arr.type_param().id(), types, context, out)?;
-                    }
-                    Ok(())
-                } else {
-                    Err(Error::new(context, ErrorKind::WrongLength {
-                        actual_len: self.len(),
-                        expected_len: arr.len() as usize,
-                        expected: type_id
-                    }))
-                }
-            },
-            TypeDef::Sequence(seq) => {
-                for (idx, item) in self.iter().enumerate() {
-                    let mut context = context.clone();
-                    context.push_idx(idx);
-                    // Sequences are prefixed with their compact encoded length:
-                    Compact(self.len() as u32).encode_to(out);
-                    item.encode_as_type_to(seq.type_param().id(), types, context, out)?;
-                }
-                Ok(())
-            },
-            _ => {
-                Err(Error::new(context, ErrorKind::WrongShape { actual: Kind::Array, expected: type_id }))
+// Implement encoding via iterators for ordered collections
+macro_rules! impl_encode_seq_via_iterator {
+    ($ty:ident $( [$($param:ident),+] )?) => {
+        impl $(< $($param),+ >)? EncodeAsType for $ty $(< $($param),+ >)?
+        where $( $($param: EncodeAsType),+ )?
+        {
+            fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+                encode_iterable_sequence_to(self.len(), self.iter(), type_id, types, context, out)
             }
         }
     }
 }
-
-impl EncodeAsType for bool {
-    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
-        let type_id = find_single_entry_with_same_repr(type_id, types).unwrap_or(type_id);
-        let ty = types
-            .resolve(type_id)
-            .ok_or_else(|| Error::new(&context, ErrorKind::TypeNotFound(type_id)))?;
-
-        if let TypeDef::Primitive(TypeDefPrimitive::Bool) = ty.type_def() {
-            self.encode_to(out);
-            Ok(())
-        } else {
-            Err(Error::new(context, ErrorKind::WrongShape { actual: Kind::Bool, expected: type_id }))
-        }
-    }
-}
-
-impl EncodeAsType for str {
-    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
-        let type_id = find_single_entry_with_same_repr(type_id, types).unwrap_or(type_id);
-        let ty = types
-            .resolve(type_id)
-            .ok_or_else(|| Error::new(&context, ErrorKind::TypeNotFound(type_id)))?;
-
-        if let TypeDef::Primitive(TypeDefPrimitive::Str) = ty.type_def() {
-            self.encode_to(out);
-            Ok(())
-        } else {
-            Err(Error::new(context, ErrorKind::WrongShape { actual: Kind::Str, expected: type_id }))
-        }
-    }
-}
-
-impl <'a, T> EncodeAsType for &'a T where T: EncodeAsType {
-    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
-        (*self).encode_as_type_to(type_id, types, context, out)
-    }
-}
-
-impl <'a, T> EncodeAsType for std::borrow::Cow<'a, T> where T: EncodeAsType + Clone {
-    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
-        (**self).encode_as_type_to(type_id, types, context, out)
-    }
-}
-
-impl <const N: usize, T: EncodeAsType> EncodeAsType for [T; N] {
-    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
-		self[..].encode_as_type_to(type_id, types, context, out)
-    }
-}
+impl_encode_seq_via_iterator!(BTreeMap[K, V]);
+impl_encode_seq_via_iterator!(BTreeSet[K]);
+impl_encode_seq_via_iterator!(LinkedList[V]);
+impl_encode_seq_via_iterator!(BinaryHeap[V]);
+impl_encode_seq_via_iterator!(VecDeque[V]);
+impl_encode_seq_via_iterator!(Vec[V]);
 
 // Generate EncodeAsType impls for simple types that can be easily transformed
 // into types we have impls for already.
@@ -373,7 +360,6 @@ impl_encode_like!(String as &str where |val| &*val);
 impl_encode_like!(Box<T> as &T where |val| &*val);
 impl_encode_like!(Arc<T> as &T where |val| &*val);
 impl_encode_like!(Rc<T> as &T where |val| &*val);
-impl_encode_like!(Vec<T> as &[T] where |val| &*val);
 impl_encode_like!(PhantomData<T> as () where |_val| ());
 impl_encode_like!(NonZeroU8 as u8 where |val| val.get());
 impl_encode_like!(NonZeroU16 as u16 where |val| val.get());
@@ -417,5 +403,48 @@ fn find_single_entry_with_same_repr(type_id: u32, types: &PortableRegistry) -> O
             }
         }
         _ => Some(type_id)
+    }
+}
+
+// Encode some iterator of items to the type provided.
+fn encode_iterable_sequence_to<I>(len: usize, it: I, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error>
+where
+    I: Iterator,
+    I::Item: EncodeAsType
+{
+    let ty = types
+        .resolve(type_id)
+        .ok_or_else(|| Error::new(&context, ErrorKind::TypeNotFound(type_id)))?;
+
+    match ty.type_def() {
+        TypeDef::Array(arr) => {
+            if arr.len() == len as u32 {
+                for (idx, item) in it.enumerate() {
+                    let mut context = context.clone();
+                    context.push_idx(idx);
+                    item.encode_as_type_to(arr.type_param().id(), types, context, out)?;
+                }
+                Ok(())
+            } else {
+                Err(Error::new(context, ErrorKind::WrongLength {
+                    actual_len: len,
+                    expected_len: arr.len() as usize,
+                    expected: type_id
+                }))
+            }
+        },
+        TypeDef::Sequence(seq) => {
+            for (idx, item) in it.enumerate() {
+                let mut context = context.clone();
+                context.push_idx(idx);
+                // Sequences are prefixed with their compact encoded length:
+                Compact(len as u32).encode_to(out);
+                item.encode_as_type_to(seq.type_param().id(), types, context, out)?;
+            }
+            Ok(())
+        },
+        _ => {
+            Err(Error::new(context, ErrorKind::WrongShape { actual: Kind::Array, expected: type_id }))
+        }
     }
 }

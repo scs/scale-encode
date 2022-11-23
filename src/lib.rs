@@ -1,8 +1,11 @@
 mod impls;
 
-use std::{fmt::Display, ops::Deref};
+use std::fmt::Display;
 use scale_info::PortableRegistry;
 
+/// This trait signals that some static type can possibly be SCALE encoded, given some
+/// `type_id` and [`PortableRegistry`] which dictates the expected encoding. A [`Context`]
+/// is also passed around, which is used internally for
 pub trait EncodeAsType {
     fn encode_as_type(&self, type_id: u32, types: &PortableRegistry, context: Context) -> Result<Vec<u8>, Error> {
         let mut out = Vec::new();
@@ -12,20 +15,6 @@ pub trait EncodeAsType {
 
     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error>;
 }
-
-// pub trait EncodeAsTypeLike {
-//     type Target: EncodeAsType + ?Sized;
-//     fn encode_as_type_like(&self) -> &Self::Target;
-// }
-
-// impl <'a, T> EncodeAsType for T
-// where
-//     T: EncodeAsTypeLike + 'a
-// {
-//     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
-//         self.encode_as_type_like().encode_as_type_to(type_id, types, context, out)
-//     }
-// }
 
 #[derive(Clone, Default)]
 pub struct Context {
@@ -180,3 +169,9 @@ pub enum NumericKind {
     I64,
     I128,
 }
+
+// TODO:
+// - move Context and relaetd to a separate file. make linkedlist; need to be able to clone efficiently.
+// - tests for current impls to verify against parity-scale-codec.
+// - add derive crate to handle structs and variants.
+// - consider adding EncodeAsTypeLike (which can hand back reference or actual type) and test.
