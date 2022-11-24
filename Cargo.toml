@@ -15,7 +15,9 @@ include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE"]
 
 
 [dependencies]
-
 scale-info = { version = "2.3.0", features = ["bit-vec"] }
 thiserror = "1.0.37"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "full"] }
+
+[dev-dependencies]
+scale-info = { version = "2.3.0", features = ["bit-vec", "derive"] }
