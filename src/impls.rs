@@ -7,7 +7,7 @@ use codec::{
     Encode,
     Compact
 };
-use crate::{ EncodeAsType, Error, Context, Kind, ErrorKind, NumericKind };
+use crate::{ EncodeAsType, Error, Context, context::Location, Kind, ErrorKind };
 use core::num::{
     NonZeroU8,
     NonZeroU16,
@@ -31,10 +31,10 @@ use std::collections::{
 
 impl EncodeAsType for bool {
     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
-        let type_id = find_single_entry_with_same_repr(type_id, types).unwrap_or(type_id);
+        let type_id = find_single_entry_with_same_repr(type_id, types);
         let ty = types
             .resolve(type_id)
-            .ok_or_else(|| Error::new(&context, ErrorKind::TypeNotFound(type_id)))?;
+            .ok_or_else(|| Error::new(context.clone(), ErrorKind::TypeNotFound(type_id)))?;
 
         if let TypeDef::Primitive(TypeDefPrimitive::Bool) = ty.type_def() {
             self.encode_to(out);
@@ -47,10 +47,10 @@ impl EncodeAsType for bool {
 
 impl EncodeAsType for str {
     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
-        let type_id = find_single_entry_with_same_repr(type_id, types).unwrap_or(type_id);
+        let type_id = find_single_entry_with_same_repr(type_id, types);
         let ty = types
             .resolve(type_id)
-            .ok_or_else(|| Error::new(&context, ErrorKind::TypeNotFound(type_id)))?;
+            .ok_or_else(|| Error::new(context.clone(), ErrorKind::TypeNotFound(type_id)))?;
 
         if let TypeDef::Primitive(TypeDefPrimitive::Str) = ty.type_def() {
             self.encode_to(out);
@@ -90,62 +90,59 @@ macro_rules! impl_encode_number {
     ($ty:ty) => {
         impl EncodeAsType for $ty {
             fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
-                let type_id = find_single_entry_with_same_repr(type_id, types).unwrap_or(type_id);
+                let type_id = find_single_entry_with_same_repr(type_id, types);
 
                 let ty = types
                     .resolve(type_id)
-                    .ok_or_else(|| Error::new(&context, ErrorKind::TypeNotFound(type_id)))?;
+                    .ok_or_else(|| Error::new(context.clone(), ErrorKind::TypeNotFound(type_id)))?;
 
-                fn try_num<T: TryFrom<$ty> + Encode>(num: $ty, context: Context, target_kind: NumericKind, out: &mut Vec<u8>) -> Result<(), Error> {
-                    let n: T = num.try_into().map_err(|_| Error::new(context, ErrorKind::NumberOutOfRange { value: num.to_string(), target_type: target_kind }))?;
+                fn try_num<T: TryFrom<$ty> + Encode>(num: $ty, context: Context, target_id: u32, out: &mut Vec<u8>) -> Result<(), Error> {
+                    let n: T = num.try_into().map_err(|_| Error::new(context, ErrorKind::NumberOutOfRange { value: num.to_string(), expected: target_id }))?;
                     n.encode_to(out);
                     Ok(())
                 }
 
                 match ty.type_def() {
                     TypeDef::Primitive(TypeDefPrimitive::U8) => {
-                        try_num::<u8>(*self, context, NumericKind::U8, out)
+                        try_num::<u8>(*self, context, type_id, out)
                     },
                     TypeDef::Primitive(TypeDefPrimitive::U16) => {
-                        try_num::<u16>(*self, context, NumericKind::U16, out)
+                        try_num::<u16>(*self, context, type_id, out)
                     },
                     TypeDef::Primitive(TypeDefPrimitive::U32) => {
-                        try_num::<u32>(*self, context, NumericKind::U32, out)
+                        try_num::<u32>(*self, context, type_id, out)
                     },
                     TypeDef::Primitive(TypeDefPrimitive::U64) => {
-                        try_num::<u64>(*self, context, NumericKind::U64, out)
+                        try_num::<u64>(*self, context, type_id, out)
                     },
                     TypeDef::Primitive(TypeDefPrimitive::U128) => {
-                        try_num::<u128>(*self, context, NumericKind::U128, out)
+                        try_num::<u128>(*self, context, type_id, out)
                     },
                     TypeDef::Primitive(TypeDefPrimitive::I8) => {
-                        try_num::<i8>(*self, context, NumericKind::I8, out)
+                        try_num::<i8>(*self, context, type_id, out)
                     },
                     TypeDef::Primitive(TypeDefPrimitive::I16) => {
-                        try_num::<i16>(*self, context, NumericKind::I16, out)
+                        try_num::<i16>(*self, context, type_id, out)
                     },
                     TypeDef::Primitive(TypeDefPrimitive::I32) => {
-                        try_num::<i32>(*self, context, NumericKind::I32, out)
+                        try_num::<i32>(*self, context, type_id, out)
                     },
                     TypeDef::Primitive(TypeDefPrimitive::I64) => {
-                        try_num::<i64>(*self, context, NumericKind::I64, out)
+                        try_num::<i64>(*self, context, type_id, out)
                     },
                     TypeDef::Primitive(TypeDefPrimitive::I128) => {
-                        try_num::<i128>(*self, context, NumericKind::I128, out)
+                        try_num::<i128>(*self, context, type_id, out)
                     },
                     TypeDef::Compact(c) => {
-                        let type_id = find_single_entry_with_same_repr(c.type_param().id(), types).ok_or_else(|| Error::new(&context, ErrorKind::CannotEncodeToType {
-                            id: type_id,
-                            reason: "compact encoded types must be numbers, or single-field tuples, arrays or composites ultimately containing numbers"
-                        }))?;
+                        let type_id = find_single_entry_with_same_repr(c.type_param().id(), types);
 
                         let ty = types
                             .resolve(type_id)
-                            .ok_or_else(|| Error::new(&context, ErrorKind::TypeNotFound(type_id)))?;
+                            .ok_or_else(|| Error::new(context.clone(), ErrorKind::TypeNotFound(type_id)))?;
 
                         macro_rules! try_compact_num {
                             ($num:expr, $context:expr, $target_kind:expr, $out:expr, $type:ty) => {{
-                                let n: $type = $num.try_into().map_err(|_| Error::new($context, ErrorKind::NumberOutOfRange { value: $num.to_string(), target_type: $target_kind }))?;
+                                let n: $type = $num.try_into().map_err(|_| Error::new($context, ErrorKind::NumberOutOfRange { value: $num.to_string(), expected: type_id }))?;
                                 Compact(n).encode_to($out);
                                 Ok(())
                             }}
@@ -216,7 +213,7 @@ macro_rules! impl_encode_tuple {
                 let len = count_idents!($($t,)*);
                 let ty = types
                     .resolve(type_id)
-                    .ok_or_else(|| Error::new(&context, ErrorKind::TypeNotFound(type_id)))?;
+                    .ok_or_else(|| Error::new(context.clone(), ErrorKind::TypeNotFound(type_id)))?;
 
                 // As long as the lengths line up, to the number of tuple items, we'll
                 // do our best to encode each inner type as needed.
@@ -225,8 +222,7 @@ macro_rules! impl_encode_tuple {
                         let fields = tuple.fields();
                         let mut idx = 0;
                         $({
-                            let mut context = context.clone();
-                            context.push_idx(idx);
+                            let context = context.at(Location::idx(idx));
                             $name.encode_as_type_to(fields[idx].id(), types, context, out)?;
                             idx += 1;
                         })*
@@ -236,8 +232,7 @@ macro_rules! impl_encode_tuple {
                         let fields = composite.fields();
                         let mut idx = 0;
                         $({
-                            let mut context = context.clone();
-                            context.push_idx(idx);
+                            let context = context.at(Location::idx(idx));
                             $name.encode_as_type_to(fields[idx].ty().id(), types, context, out)?;
                             idx += 1;
                         })*
@@ -246,8 +241,7 @@ macro_rules! impl_encode_tuple {
                     TypeDef::Array(array) if array.len() == len as u32 => {
                         let mut idx = 0;
                         $({
-                            let mut context = context.clone();
-                            context.push_idx(idx);
+                            let context = context.at(Location::idx(idx));
                             $name.encode_as_type_to(array.type_param().id(), types, context, out)?;
                             idx += 1;
                         })*
@@ -287,10 +281,10 @@ macro_rules! impl_encode_basic_enum {
     ($name:ident<$($ty:ident),*>: $($variant:ident $( ($val:ident) )?),+) => {
         impl <$($ty),*> EncodeAsType for $name<$($ty),*> where $($ty: EncodeAsType),* {
             fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
-                let type_id = find_single_entry_with_same_repr(type_id, types).unwrap_or(type_id);
+                let type_id = find_single_entry_with_same_repr(type_id, types);
                 let ty = types
                     .resolve(type_id)
-                    .ok_or_else(|| Error::new(&context, ErrorKind::TypeNotFound(type_id)))?;
+                    .ok_or_else(|| Error::new(context.clone(), ErrorKind::TypeNotFound(type_id)))?;
 
                 match ty.type_def() {
                     TypeDef::Variant(var) => {
@@ -375,34 +369,24 @@ impl_encode_like!(Duration as (u64, u32) where |val| (val.as_secs(), val.subsec_
 impl_encode_like!(Range<T> as (&T, &T) where |val| (&val.start, &val.end));
 impl_encode_like!(RangeInclusive<T> as (&T, &T) where |val| (&val.start(), &val.end()));
 
-// Recurse into a type, looking for a single entry or returning None if there are
-// multiple entries or otherwise this is not possible. If the thing you're trying to encode
-// is some primitive type, you should probably use this to increase the chance of being able to encode.
-fn find_single_entry_with_same_repr(type_id: u32, types: &PortableRegistry) -> Option<u32> {
-    let ty = types.resolve(type_id)?;
+// Attempt to recurse into some type, returning the innermost type found that has an identical
+// SCALE encoded representation to the given type. For instance, `(T,)` encodes identically to
+// `T`, as does `Mytype { inner: T }` or `[T; 1]`.
+fn find_single_entry_with_same_repr(type_id: u32, types: &PortableRegistry) -> u32 {
+    let Some(ty) = types.resolve(type_id) else {
+        return type_id
+    };
     match ty.type_def() {
-        TypeDef::Tuple(tuple) => {
-            if tuple.fields().len() == 1 {
-                find_single_entry_with_same_repr(tuple.fields()[0].id(), types)
-            } else {
-                None
-            }
+        TypeDef::Tuple(tuple) if tuple.fields().len() == 1 => {
+            find_single_entry_with_same_repr(tuple.fields()[0].id(), types)
         },
-        TypeDef::Composite(composite) => {
-            if composite.fields().len() == 1 {
-                find_single_entry_with_same_repr(composite.fields()[0].ty().id(), types)
-            } else {
-                None
-            }
+        TypeDef::Composite(composite) if composite.fields().len() == 1 => {
+            find_single_entry_with_same_repr(composite.fields()[0].ty().id(), types)
         },
-        TypeDef::Array(arr) => {
-            if arr.len() == 1 {
-                find_single_entry_with_same_repr(arr.type_param().id(), types)
-            } else {
-                None
-            }
+        TypeDef::Array(arr) if arr.len() == 1 => {
+            find_single_entry_with_same_repr(arr.type_param().id(), types)
         }
-        _ => Some(type_id)
+        _ => type_id
     }
 }
 
@@ -414,14 +398,13 @@ where
 {
     let ty = types
         .resolve(type_id)
-        .ok_or_else(|| Error::new(&context, ErrorKind::TypeNotFound(type_id)))?;
+        .ok_or_else(|| Error::new(context.clone(), ErrorKind::TypeNotFound(type_id)))?;
 
     match ty.type_def() {
         TypeDef::Array(arr) => {
             if arr.len() == len as u32 {
                 for (idx, item) in it.enumerate() {
-                    let mut context = context.clone();
-                    context.push_idx(idx);
+                    let context = context.at(Location::idx(idx));
                     item.encode_as_type_to(arr.type_param().id(), types, context, out)?;
                 }
                 Ok(())
@@ -435,8 +418,7 @@ where
         },
         TypeDef::Sequence(seq) => {
             for (idx, item) in it.enumerate() {
-                let mut context = context.clone();
-                context.push_idx(idx);
+                let context = context.at(Location::idx(idx));
                 // Sequences are prefixed with their compact encoded length:
                 Compact(len as u32).encode_to(out);
                 item.encode_as_type_to(seq.type_param().id(), types, context, out)?;

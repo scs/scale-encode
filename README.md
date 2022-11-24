@@ -1,5 +1,6 @@
 # scale-encode
 
-## WIP
-
-The purpose of this library is to provide an `EncodeAsType` trait, which builds off `parity-scale-codec`'s `Encode` trait to allow types to be more flexibly encoded based on the target type we're trying to encode to. Still at the experimentation stage.
+`scale-encode` builds on `parity-scale-codec`. `parity-scale-codec` provides an `Encode` trait
+which allows types to SCALE encode themselves with no external information. `scale-encode` provides an
+[`EncodeAsType`] trait which allows types to decide how to encode themselves based on the desired
+target type.
