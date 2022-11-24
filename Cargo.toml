@@ -1,7 +1,18 @@
 [package]
 name = "scale-encode"
 version = "0.0.1"
+authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
+
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/paritytech/scale-value"
+documentation = "https://docs.rs/scale-value"
+homepage = "https://www.parity.io/"
+description = "Encode types to SCALE bytes given a desired target type"
+keywords = ["parity", "scale", "encoding"]
+include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE"]
+
 
 [dependencies]
 
