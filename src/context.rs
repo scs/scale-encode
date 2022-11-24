@@ -1,3 +1,7 @@
+//! This module provides a [`Context`] type that must be provided with every
+//! attempt to encode some type. Internally, the [`Context`] tracks the path
+//! that we're attempting to encode to aid in error reporting.
+
 use std::borrow::Cow;
 use crate::linkedlist::{ LinkedList };
 
@@ -74,16 +78,19 @@ enum Loc {
 }
 
 impl Location {
+    /// This represents some struct field.
     pub fn field(name: impl Into<Cow<'static,str>>) -> Self {
         Location {
             inner: Loc::Field(name.into())
         }
     }
+    /// This represents some variant name.
     pub fn variant(name: impl Into<Cow<'static,str>>) -> Self {
         Location {
             inner: Loc::Variant(name.into())
         }
     }
+    /// This represents a tuple or array index.
     pub fn idx(i: usize) -> Self {
         Location {
             inner: Loc::Index(i)

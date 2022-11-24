@@ -7,7 +7,8 @@ use codec::{
     Encode,
     Compact
 };
-use crate::{ EncodeAsType, Error, Context, context::Location, Kind, ErrorKind };
+use crate::{ EncodeAsType, Context, context::Location };
+use crate::error::{ Error, ErrorKind, Kind };
 use core::num::{
     NonZeroU8,
     NonZeroU16,
@@ -275,6 +276,7 @@ impl_encode_tuple!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k
 impl_encode_tuple!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q);
 impl_encode_tuple!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R);
 impl_encode_tuple!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S);
+// ^ Note: We make sure to support as many as parity-scale-codec's Encode impls do.
 
 // Encode our basic Option and Result enum types.
 macro_rules! impl_encode_basic_enum {
