@@ -24,4 +24,6 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 scale-bits = { version = "0.3.0", default-features = false, features = ["scale-info"], optional = true }
 
 [dev-dependencies]
+bitvec = "1.0.1"
 scale-info = { version = "2.3.0", features = ["bit-vec", "derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "full", "bit-vec"] }

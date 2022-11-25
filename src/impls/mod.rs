@@ -696,4 +696,49 @@ mod test {
 
         encode_type::<_, Foo>(source).unwrap_err();
     }
+
+    #[cfg(feature = "bits")]
+    #[test]
+    fn bits_roundtrip_ok() {
+        use scale_bits::Bits;
+        use bitvec::{ vec::BitVec, order::{ Lsb0, Msb0 } };
+
+        fn test_bits(bits: impl IntoIterator<Item = bool> + Clone) {
+            let source = Bits::from_iter(bits.clone());
+
+            let target = BitVec::<u8, Lsb0>::from_iter(bits.clone());
+            value_roundtrips_to(source.clone(), target);
+            let target = BitVec::<u16, Lsb0>::from_iter(bits.clone());
+            value_roundtrips_to(source.clone(), target);
+            let target = BitVec::<u32, Lsb0>::from_iter(bits.clone());
+            value_roundtrips_to(source.clone(), target);
+            let target = BitVec::<u64, Lsb0>::from_iter(bits.clone());
+            value_roundtrips_to(source.clone(), target);
+            let target = BitVec::<u8, Msb0>::from_iter(bits.clone());
+            value_roundtrips_to(source.clone(), target);
+            let target = BitVec::<u16, Msb0>::from_iter(bits.clone());
+            value_roundtrips_to(source.clone(), target);
+            let target = BitVec::<u32, Msb0>::from_iter(bits.clone());
+            value_roundtrips_to(source.clone(), target);
+            let target = BitVec::<u64, Msb0>::from_iter(bits);
+            value_roundtrips_to(source, target);
+        }
+
+        test_bits([]);
+        test_bits([true]);
+        test_bits([false]);
+        test_bits([true, false, true, true, false]);
+        test_bits([true, false, true, true, false, true, false, true, true, false, false]);
+
+        // Wrapping the input or output bitvecs is fine; it'll figure it out:
+        value_roundtrips_to(
+            Bits::from_iter([true, false, true]),
+            ((BitVec::<u8, Lsb0>::from_iter([true, false, true]),),)
+        );
+        value_roundtrips_to(
+            (Bits::from_iter([true, false, true]),),
+            ((BitVec::<u8, Lsb0>::from_iter([true, false, true]),),)
+        );
+    }
+
 }
