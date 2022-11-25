@@ -62,13 +62,13 @@ impl EncodeAsType for str {
     }
 }
 
-impl <'a, T> EncodeAsType for &'a T where T: EncodeAsType {
+impl <'a, T> EncodeAsType for &'a T where T: EncodeAsType + ?Sized {
     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
         (*self).encode_as_type_to(type_id, types, context, out)
     }
 }
 
-impl <'a, T> EncodeAsType for std::borrow::Cow<'a, T> where T: EncodeAsType + Clone {
+impl <'a, T> EncodeAsType for std::borrow::Cow<'a, T> where T: EncodeAsType + Clone + ?Sized {
     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
         (**self).encode_as_type_to(type_id, types, context, out)
     }
@@ -417,7 +417,7 @@ fn find_single_entry_with_same_repr(type_id: u32, types: &PortableRegistry) -> u
 }
 
 // Encode some iterator of items to the type provided.
-fn encode_iterable_sequence_to<I>(len: usize, it: I, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error>
+fn encode_iterable_sequence_to<I>(len: usize, mut it: I, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error>
 where
     I: Iterator,
     I::Item: EncodeAsType
@@ -443,16 +443,30 @@ where
             }
         },
         TypeDef::Sequence(seq) => {
+            // Sequences are prefixed with their compact encoded length:
+            Compact(len as u32).encode_to(out);
             for (idx, item) in it.enumerate() {
                 let context = context.at(Location::idx(idx));
-                // Sequences are prefixed with their compact encoded length:
-                Compact(len as u32).encode_to(out);
                 item.encode_as_type_to(seq.type_param().id(), types, context, out)?;
             }
             Ok(())
         },
         _ => {
-            Err(Error::new(context, ErrorKind::WrongShape { actual: Kind::Array, expected: type_id }))
+            // If the sequence has exactly 1 entry, try to encode that instead
+            // before giving up.
+            let single_item = if len == 1 {
+                it.next()
+            } else {
+                None
+            };
+
+            if let Some(item) = single_item {
+                let context = context.at(Location::idx(0));
+                item.encode_as_type_to(type_id, types, context, out)?;
+                Ok(())
+            } else {
+                Err(Error::new(context, ErrorKind::WrongShape { actual: Kind::Array, expected: type_id }))
+            }
         }
     }
 }
@@ -474,7 +488,7 @@ mod test {
 		(id.id(), portable_registry)
 	}
 
-    fn encode_type<V: EncodeAsType, T: TypeInfo + 'static>(value: &V) -> Result<Vec<u8>, Error> {
+    fn encode_type<V: EncodeAsType, T: TypeInfo + 'static>(value: V) -> Result<Vec<u8>, Error> {
         let (type_id, types) = make_type::<T>();
         let context = Context::default();
         let bytes = value.encode_as_type(type_id, &types, context)?;
@@ -490,13 +504,10 @@ mod test {
         assert_eq!(target, new_target, "value does not roundtrip and decode to target");
     }
 
-    fn value_roundtrips<V: EncodeAsType + PartialEq + Debug + Decode + TypeInfo + 'static>(value: V) {
+    fn encodes_like_codec<V: Encode + EncodeAsType + PartialEq + Debug + TypeInfo + 'static>(value: V) {
         let bytes = encode_type::<_, V>(&value).expect("can encode");
-        let bytes_cursor = &mut &*bytes;
-        let new_value = V::decode(bytes_cursor).expect("can decode");
-
-        assert_eq!(bytes_cursor.len(), 0, "no bytes should be remaining");
-        assert_eq!(value, new_value, "value does not roundtrip and decode to itself again");
+        let encode_bytes = value.encode();
+        assert_eq!(bytes, encode_bytes, "scale-encode encoded differently from parity-scale-codec");
     }
 
 
@@ -538,8 +549,15 @@ mod test {
                 uint_value_roundtrip!($val; u128);
             )+}
         }
-        uint_value_roundtrip_types!(0, 1, 100, 127);
+        macro_rules! all_value_roundtrip_types {
+            ($($val:expr),+) => {$(
+                int_value_roundtrip_types!($val);
+                uint_value_roundtrip_types!($val);
+            )+}
+        }
+        uint_value_roundtrip_types!(200);
         int_value_roundtrip_types!(-127, -100, 0, 1, 100, 127);
+        all_value_roundtrip_types!(0, 1, 100, 127);
     }
 
     #[test]
@@ -550,15 +568,64 @@ mod test {
     }
 
     #[test]
+    fn basic_types_encode_like_scale_codec() {
+        encodes_like_codec(true);
+        encodes_like_codec(false);
+        encodes_like_codec("hi");
+        encodes_like_codec("hi".to_string());
+        encodes_like_codec(Box::new("hi"));
+        encodes_like_codec(-1234);
+        encodes_like_codec(100_000_000_000_000u128);
+        encodes_like_codec(());
+        encodes_like_codec(std::marker::PhantomData::<()>);
+        encodes_like_codec([1,2,3,4,5]);
+        encodes_like_codec(vec![1,2,3,4,5]);
+        encodes_like_codec(&[1,2,3,4,5]);
+        encodes_like_codec(Some(1234u32));
+        encodes_like_codec(None as Option<bool>);
+        encodes_like_codec(Ok::<_,&str>("hello"));
+        encodes_like_codec(Err::<u32,_>("aah"));
+        encodes_like_codec(0..100);
+        encodes_like_codec(0..=100);
+
+        // These don't impl TypeInfo so we have to provide the target type to encode to & compare with:
+        value_roundtrips_to(Arc::new("hi"), "hi".to_string());
+        value_roundtrips_to(Rc::new("hi"), "hi".to_string());
+        // encodes_like_codec(std::time::Duration::from_millis(123456));
+
+    }
+
+    #[test]
+    fn other_container_types_roundtrip_ok() {
+        // These things don't have TypeInfo impls, and so we just assume that they should
+        // encode like any sequence, prefixed with length.
+
+        let v = LinkedList::from([1u8,2,3]);
+        value_roundtrips_to(v, vec![1u8,2,3]);
+
+        // (it's a max heap, so values ordered max first.)
+        let v = BinaryHeap::from([2,3,1]);
+        value_roundtrips_to(v, vec![3u8,2,1]);
+
+        let v = BTreeSet::from([1u8,2,3]);
+        value_roundtrips_to(v, vec![1u8,2,3]);
+
+        let v = VecDeque::from([1u8,2,3]);
+        value_roundtrips_to(v, vec![1u8,2,3]);
+
+        let v = BTreeMap::from([("a", 1u8),("b", 2), ("c", 3)]);
+        value_roundtrips_to(v, vec![("a".to_string(), 1u8),("b".to_string(), 2), ("c".to_string(), 3)]);
+    }
+
+    #[test]
     fn mixed_tuples_roundtrip_ok() {
-        value_roundtrips(());
-        value_roundtrips((12345,));
-        value_roundtrips((123u8, true));
-        // Decode isn't implemented for &str:
-        value_roundtrips((123u8, true, "hello".to_string()));
-        // Decode isn't implemented for `char` (but we treat it as a u32):
-        value_roundtrips((123u8, true, "hello".to_string(), 'a' as u32));
-        value_roundtrips((123u8, true, "hello".to_string(), 'a' as u32, 123_000_000_000u128));
+        encodes_like_codec(());
+        encodes_like_codec((12345,));
+        encodes_like_codec((123u8, true));
+        encodes_like_codec((123u8, true, "hello"));
+        // Encode isn't implemented for `char` (but we treat it as a u32):
+        encodes_like_codec((123u8, true, "hello".to_string(), 'a' as u32));
+        encodes_like_codec((123u8, true, "hello".to_string(), 'a' as u32, 123_000_000_000u128));
     }
 
     #[test]
@@ -567,10 +634,11 @@ mod test {
         value_roundtrips_to((1u8, 2u8, 3u8), vec![1u8, 2u8, 3u8]);
         value_roundtrips_to((1u8, 2u8, 3u8), [1u8, 2u8, 3u8]);
 
-        // Even when inner types differ but remain compatible:
+        // Even when inner types differ but remain compatible on either side.
         value_roundtrips_to((1u8, 2u8, 3u8), vec![1u128, 2u128, 3u128]);
         value_roundtrips_to((1u8, 2u8, 3u8), vec![(1u128,), (2u128,), (3u128,)]);
         value_roundtrips_to(((1u8,), (2u8,), 3u8), vec![1u128, 2u128, 3u128]);
+        value_roundtrips_to((([[1u8]],), (2u8,), 3u8), vec![1u128, 2u128, 3u128]);
 
         // tuples can also encode to structs of same lengths (with inner type compat):
         #[derive(Debug, scale_info::TypeInfo, codec::Decode, PartialEq)]
