@@ -1,3 +1,11 @@
+#[cfg(feature = "bits")]
+mod bits;
+mod tuple_composite;
+
+// Exposed so that the derive macro can lean on it.
+#[doc(hidden)]
+pub use tuple_composite::TupleComposite;
+
 use scale_info::{
     PortableRegistry,
     TypeDef,
@@ -205,76 +213,13 @@ macro_rules! count_idents {
 macro_rules! impl_encode_tuple {
     ($($name:ident: $t:ident),*) => {
         impl < $($t),* > EncodeAsType for ($($t,)*) where $($t: EncodeAsType),* {
-            #[allow(unused_assignments)]
-            #[allow(unused_mut)]
-            #[allow(unused_variables)]
             fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
                 let ($($name,)*) = self;
-
-                const LEN: usize = count_idents!($($t,)*);
-                let ty = types
-                    .resolve(type_id)
-                    .ok_or_else(|| Error::new(context.clone(), ErrorKind::TypeNotFound(type_id)))?;
-
-                // As long as the lengths line up, to the number of tuple items, we'll
-                // do our best to encode each inner type as needed.
-                match ty.type_def() {
-                    TypeDef::Tuple(tuple) if tuple.fields().len() == LEN => {
-                        let fields = tuple.fields();
-                        let mut idx = 0;
-                        $({
-                            let context = context.at(Location::idx(idx));
-                            $name.encode_as_type_to(fields[idx].id(), types, context, out)?;
-                            idx += 1;
-                        })*
-                        Ok(())
-                    },
-                    TypeDef::Composite(composite) if composite.fields().len() == LEN => {
-                        let fields = composite.fields();
-                        let mut idx = 0;
-                        $({
-                            let context = context.at(Location::idx(idx));
-                            $name.encode_as_type_to(fields[idx].ty().id(), types, context, out)?;
-                            idx += 1;
-                        })*
-                        Ok(())
-                    },
-                    TypeDef::Array(array) if array.len() == LEN as u32 => {
-                        let mut idx = 0;
-                        $({
-                            let context = context.at(Location::idx(idx));
-                            $name.encode_as_type_to(array.type_param().id(), types, context, out)?;
-                            idx += 1;
-                        })*
-                        Ok(())
-                    },
-                    TypeDef::Sequence(seq) => {
-                        let mut idx = 0;
-                        // sequences start with compact encoded length:
-                        Compact(LEN as u32).encode_to(out);
-                        $({
-                            let context = context.at(Location::idx(idx));
-                            $name.encode_as_type_to(seq.type_param().id(), types, context, out)?;
-                            idx += 1;
-                        })*
-                        Ok(())
-                    },
-                    _ => {
-                        // Tuple with 1 entry? before giving up, try encoding the inner entry instead:
-                        if LEN == 1 {
-                            // We only care about the case where there is exactly one copy of
-                            // this, but have to accomodate the cases where multiple copies and assume
-                            // that the compielr can easily optimise out this branch for LEN != 1.
-                            $({
-                                let context = context.at(Location::idx(0));
-                                $name.encode_as_type_to(type_id, types, context, out)?;
-                            })*
-                            Ok(())
-                        } else {
-                            Err(Error::new(context, ErrorKind::WrongShape { actual: Kind::Tuple, expected: type_id }))
-                        }
-                    }
-                }
+                tuple_composite::TupleComposite((
+                    $(
+                        (None as Option<&'static str>, $name)
+                    ,)*
+                )).encode_as_type_to(type_id, types, context, out)
             }
         }
     }
@@ -451,9 +396,18 @@ where
             }
             Ok(())
         },
+        // if the target type is a basic newtype wrapper, then dig into that and try encoding to
+        // the thing inside it. This is fairly common, and allowing this means that users don't have
+        // to wrap things needlessly just to make types line up.
+        TypeDef::Tuple(tup) if tup.fields().len() == 1 => {
+            encode_iterable_sequence_to(len, it, tup.fields()[0].id(), types, context, out)
+        },
+        TypeDef::Composite(com) if com.fields().len() == 1 => {
+            encode_iterable_sequence_to(len, it, com.fields()[0].ty().id(), types, context, out)
+        },
         _ => {
-            // If the sequence has exactly 1 entry, try to encode that instead
-            // before giving up.
+            // As a last ditch attempt, if the sequence we're trying to encode has 1 value in,
+            // then try encoding that value to the target type before giving up.
             let single_item = if len == 1 {
                 it.next()
             } else {
@@ -646,4 +600,100 @@ mod test {
         value_roundtrips_to((1u8, 2u8, 3u8), Foo { a: (1,), b: 2, c: 3 });
     }
 
+    #[test]
+    fn values_roundtrip_into_wrappers() {
+        #[derive(Debug, scale_info::TypeInfo, codec::Decode, PartialEq)]
+        struct Wrapper<T> {
+            val: T
+        }
+
+        value_roundtrips_to(true, ([true],));
+        value_roundtrips_to(1234u16, ([1234u16],));
+        value_roundtrips_to(1234u16, Wrapper { val: 1234u16 });
+        value_roundtrips_to("hi", (["hi".to_string()],));
+        value_roundtrips_to("hi", ([Wrapper { val: "hi".to_string() }],));
+
+        // Sequence types will try to unwrap composite/tuple things in the target type to
+        // find a sequenceish thing to encode to.
+        value_roundtrips_to(vec![1i128], (Wrapper { val: vec![1i128] },));
+        // and as a last5 ditch attempt we'll unwrap a single value in a sequence type and
+        // try encoding to that.
+        value_roundtrips_to(vec![1i128], (Wrapper { val: 1i128 },));
+    }
+
+    #[test]
+    fn tuple_composite_can_encode_to_named_structs() {
+        #[derive(Debug, scale_info::TypeInfo, codec::Decode, PartialEq)]
+        struct Foo {
+            bar: u32,
+            wibble: bool,
+            hello: String
+        }
+
+        // note: fields do not need to be in order when named:
+        let source = TupleComposite((
+            (Some("hello"), "world".to_string()),
+            (Some("bar"), 12345u128),
+            (Some("wibble"), true),
+        ));
+
+        let target = Foo {
+            bar: 12345,
+            wibble: true,
+            hello: "world".to_string()
+        };
+
+        value_roundtrips_to(source, target);
+    }
+
+    #[test]
+    fn tuple_composite_can_encode_to_unnamed_structs() {
+        #[derive(Debug, scale_info::TypeInfo, codec::Decode, PartialEq, Clone)]
+        struct Foo (
+            u32,
+            bool,
+            String
+        );
+
+        // note: unnamed target so fields need to be in order (can be named or not)
+        let source = TupleComposite((
+            (Some("bar"), 12345u128),
+            (Some("wibble"), true),
+            (Some("hello"), "world".to_string()),
+        ));
+        let source2 = TupleComposite((
+            (None, 12345u128),
+            (None, true),
+            (None, "world".to_string()),
+        ));
+
+        let target = Foo (
+            12345,
+            true,
+            "world".to_string()
+        );
+
+        value_roundtrips_to(source, target.clone());
+        value_roundtrips_to(source2, target);
+    }
+
+    #[test]
+    fn tuple_composite_names_must_line_up() {
+        #[derive(Debug, scale_info::TypeInfo, codec::Decode, PartialEq)]
+        struct Foo {
+            bar: u32,
+            wibble: bool,
+            hello: String
+        }
+
+        // note: fields do not need to be in order when named:
+        let source = TupleComposite((
+            (Some("hello"), "world".to_string()),
+            (Some("bar"), 12345u128),
+            // Note: typo in name below, so it won't line up.
+            (Some("wibbles"), true),
+        ));
+
+        encode_type::<_, Foo>(source).unwrap_err();
+    }
 }

@@ -13,11 +13,15 @@ description = "Encode types to SCALE bytes given a desired target type"
 keywords = ["parity", "scale", "encoding"]
 include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE"]
 
+[features]
+default = ["bits"]
+bits = ["dep:scale-bits"]
 
 [dependencies]
 scale-info = { version = "2.3.0", features = ["bit-vec"] }
 thiserror = "1.0.37"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "full"] }
+scale-bits = { version = "0.3.0", default-features = false, features = ["scale-info"], optional = true }
 
 [dev-dependencies]
 scale-info = { version = "2.3.0", features = ["bit-vec", "derive"] }

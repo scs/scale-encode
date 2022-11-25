@@ -76,6 +76,12 @@ pub enum ErrorKind {
         /// ID of the expected type.
         expected: u32
     },
+    /// Cannot find a field on our source type that's needed for the target type.
+    #[error("Field {name} does not exist in our source struct")]
+    CannotFindField {
+        /// Name of the field which was not provided.
+        name: String
+    }
 }
 
 /// The kind of type that we're trying to encode.
