@@ -1,10 +1,13 @@
 #[cfg(feature = "bits")]
 mod bits;
-mod tuple_composite;
+mod composite;
+mod variant;
 
 // Exposed so that the derive macro can lean on it.
 #[doc(hidden)]
-pub use tuple_composite::TupleComposite;
+pub use composite::Composite;
+#[doc(hidden)]
+pub use variant::Variant;
 
 use scale_info::{
     PortableRegistry,
@@ -91,6 +94,32 @@ impl <T> EncodeAsType for [T] where T: EncodeAsType {
 impl <const N: usize, T: EncodeAsType> EncodeAsType for [T; N] {
     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
 		self[..].encode_as_type_to(type_id, types, context, out)
+    }
+}
+
+impl <T: EncodeAsType, E: EncodeAsType> EncodeAsType for Result<T, E> {
+    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+        match self {
+            Ok(v) => {
+                Variant { name: "Ok", fields: Composite(((None, v),)) }.encode_as_type_to(type_id, types, context, out)
+            },
+            Err(e) => {
+                Variant { name: "Err", fields: Composite(((None, e),)) }.encode_as_type_to(type_id, types, context, out)
+            }
+        }
+    }
+}
+
+impl <T: EncodeAsType> EncodeAsType for Option<T> {
+    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+        match self {
+            Some(v) => {
+                Variant { name: "Some", fields: Composite(((None, v),)) }.encode_as_type_to(type_id, types, context, out)
+            },
+            None => {
+                Variant { name: "None", fields: Composite(()) }.encode_as_type_to(type_id, types, context, out)
+            }
+        }
     }
 }
 
@@ -203,19 +232,13 @@ impl_encode_number!(i32);
 impl_encode_number!(i64);
 impl_encode_number!(i128);
 
-// Count the number of types provided.
-macro_rules! count_idents {
-    () => (0usize);
-    ( $t:ident, $($ts:ident,)* ) => (1usize + count_idents!($($ts,)*));
-}
-
 // Encode tuple types to any matching type.
 macro_rules! impl_encode_tuple {
     ($($name:ident: $t:ident),*) => {
         impl < $($t),* > EncodeAsType for ($($t,)*) where $($t: EncodeAsType),* {
             fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
                 let ($($name,)*) = self;
-                tuple_composite::TupleComposite((
+                composite::Composite((
                     $(
                         (None as Option<&'static str>, $name)
                     ,)*
@@ -245,46 +268,6 @@ impl_encode_tuple!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k
 impl_encode_tuple!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R);
 impl_encode_tuple!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S);
 // ^ Note: We make sure to support as many as parity-scale-codec's Encode impls do.
-
-// Encode our basic Option and Result enum types.
-macro_rules! impl_encode_basic_enum {
-    ($name:ident<$($ty:ident),*>: $($variant:ident $( ($val:ident) )?),+) => {
-        impl <$($ty),*> EncodeAsType for $name<$($ty),*> where $($ty: EncodeAsType),* {
-            fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
-                let type_id = find_single_entry_with_same_repr(type_id, types);
-                let ty = types
-                    .resolve(type_id)
-                    .ok_or_else(|| Error::new(context.clone(), ErrorKind::TypeNotFound(type_id)))?;
-
-                match ty.type_def() {
-                    TypeDef::Variant(var) => {
-                        let vars = var.variants();
-                        match self {
-                            $(
-                                $variant $( ($val) )? => {
-                                    let Some(v) = vars.iter().find(|v| v.name == stringify!($variant)) else {
-                                        return Err(Error::new(context, ErrorKind::CannotFindVariant { name: stringify!($variant).into(), expected: type_id }));
-                                    };
-                                    if v.fields().len() != count_idents!($($val,)*) {
-                                        return Err(Error::new(context, ErrorKind::WrongLength { actual_len: v.fields().len(), expected_len: 1, expected: type_id }));
-                                    }
-                                    v.index().encode_to(out);
-                                    $( $val.encode_as_type_to(v.fields()[0].ty().id(), types, context, out)?; )?
-                                    Ok(())
-                                }
-                            )*
-                        }
-                    },
-                    _ => {
-                        Err(Error::new(context, ErrorKind::WrongShape { actual: Kind::Str, expected: type_id }))
-                    }
-                }
-            }
-        }
-    }
-}
-impl_encode_basic_enum!(Option<T>: Some(val), None);
-impl_encode_basic_enum!(Result<T, E>: Ok(val), Err(e));
 
 // Implement encoding via iterators for ordered collections
 macro_rules! impl_encode_seq_via_iterator {
@@ -631,7 +614,7 @@ mod test {
         }
 
         // note: fields do not need to be in order when named:
-        let source = TupleComposite((
+        let source = Composite((
             (Some("hello"), "world".to_string()),
             (Some("bar"), 12345u128),
             (Some("wibble"), true),
@@ -656,12 +639,12 @@ mod test {
         );
 
         // note: unnamed target so fields need to be in order (can be named or not)
-        let source = TupleComposite((
+        let source = Composite((
             (Some("bar"), 12345u128),
             (Some("wibble"), true),
             (Some("hello"), "world".to_string()),
         ));
-        let source2 = TupleComposite((
+        let source2 = Composite((
             (None, 12345u128),
             (None, true),
             (None, "world".to_string()),
@@ -687,7 +670,7 @@ mod test {
         }
 
         // note: fields do not need to be in order when named:
-        let source = TupleComposite((
+        let source = Composite((
             (Some("hello"), "world".to_string()),
             (Some("bar"), 12345u128),
             // Note: typo in name below, so it won't line up.

@@ -15,6 +15,13 @@ use scale_info::PortableRegistry;
 pub use context::Context;
 pub use error::Error;
 
+// These are exposed to be used in the proc macro crate and aren't part of the public interface.
+#[doc(hidden)]
+pub use impls::{
+    Composite,
+    Variant
+};
+
 /// This trait signals that some static type can possibly be SCALE encoded given some
 /// `type_id` and [`PortableRegistry`] which dictates the expected encoding. A [`Context`]
 /// is also passed around, which is used internally to improve error reporting. Implementations
