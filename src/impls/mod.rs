@@ -238,7 +238,7 @@ macro_rules! impl_encode_tuple {
         impl < $($t),* > EncodeAsType for ($($t,)*) where $($t: EncodeAsType),* {
             fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
                 let ($($name,)*) = self;
-                composite::Composite((
+                Composite((
                     $(
                         (None as Option<&'static str>, $name)
                     ,)*
