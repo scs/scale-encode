@@ -17,10 +17,16 @@ pub use error::Error;
 
 // These are exposed to be used in the proc macro crate and aren't part of the public interface.
 #[doc(hidden)]
-pub use impls::{
-    Composite,
-    Variant
-};
+pub mod __internal {
+    pub use crate::impls::{
+        Composite,
+        Variant
+    };
+    pub use scale_info::PortableRegistry;
+}
+
+#[cfg(feature = "derive")]
+pub use scale_encode_derive::EncodeAsType;
 
 /// This trait signals that some static type can possibly be SCALE encoded given some
 /// `type_id` and [`PortableRegistry`] which dictates the expected encoding. A [`Context`]

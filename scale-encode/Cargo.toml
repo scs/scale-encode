@@ -1,0 +1,33 @@
+[package]
+name = "scale-encode"
+version = "0.0.1"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/paritytech/scale-value"
+documentation = "https://docs.rs/scale-value"
+homepage = "https://www.parity.io/"
+description = "Encode types to SCALE bytes given a desired target type"
+keywords = ["parity", "scale", "encoding"]
+include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE"]
+
+[features]
+default = ["bits", "derive"]
+bits = ["dep:scale-bits"]
+derive = ["dep:scale-encode-derive"]
+
+[dependencies]
+scale-info = { version = "2.3.0", features = ["bit-vec"] }
+thiserror = "1.0.37"
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "full"] }
+scale-bits = { version = "0.3.0", default-features = false, features = ["scale-info"], optional = true }
+scale-encode-derive = { path = "../scale-encode-derive", version = "0.0.1", optional = true }
+
+[dev-dependencies]
+bitvec = "1.0.1"
+scale-info = { version = "2.3.0", features = ["bit-vec", "derive"] }
+scale-encode-derive = { path = "../scale-encode-derive" }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "full", "bit-vec"] }
+trybuild = "1.0.72"

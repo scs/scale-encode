@@ -1,0 +1,17 @@
+[package]
+name = "scale-encode-derive"
+description = "Derive macro for scale-encode"
+version = "0.0.1"
+authors = ["Parity Technologies <admin@parity.io>"]
+license = "Apache-2.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1", features = ["full"] }
+quote = "1"
+proc-macro2 = "1"
+proc-macro-crate = "1"
+darling = "0.14.2"
