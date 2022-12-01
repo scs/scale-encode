@@ -97,6 +97,12 @@ impl <const N: usize, T: EncodeAsType> EncodeAsType for [T; N] {
     }
 }
 
+impl <T> EncodeAsType for PhantomData<T> {
+    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+		().encode_as_type_to(type_id, types, context, out)
+    }
+}
+
 impl <T: EncodeAsType, E: EncodeAsType> EncodeAsType for Result<T, E> {
     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
         match self {
@@ -308,7 +314,6 @@ impl_encode_like!(Box<T> as &T where |val| &*val);
 impl_encode_like!(Arc<T> as &T where |val| &*val);
 impl_encode_like!(Rc<T> as &T where |val| &*val);
 impl_encode_like!(char as u32 where |val| *val as u32);
-impl_encode_like!(PhantomData<T> as () where |_val| ());
 impl_encode_like!(NonZeroU8 as u8 where |val| val.get());
 impl_encode_like!(NonZeroU16 as u16 where |val| val.get());
 impl_encode_like!(NonZeroU32 as u32 where |val| val.get());

@@ -12,9 +12,39 @@ use crate::{
 };
 use super::composite::EncodeFieldsAsType;
 
-/// This type represents some statically declared variant type. Derive macros
-/// on enums will use this internall to benefit from the same logic and keep
-/// them lightweight.
+/// This type represents named or unnamed composite values, and can be used
+/// to help generate `EncodeAsType` impls. It's primarily used by the exported
+/// macros to do just that.
+///
+/// ```rust
+/// use scale_encode::utils::{ Composite, Variant, PortableRegistry };
+/// use scale_encode::{ Error, Context, EncodeAsType };
+///
+/// enum MyType {
+///    SomeField(bool),
+///    OtherField { foo: u64, bar: String }
+/// }
+///
+/// impl EncodeAsType for MyType {
+///     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+///         match self {
+///             MyType::SomeField(b) => Variant {
+///                 name: "SomeField",
+///                 fields: Composite((
+///                     (None, b),
+///                 ))
+///             }.encode_as_type_to(type_id, types, context, out),
+///             MyType::OtherField { foo, bar } => Variant {
+///                 name: "OtherField",
+///                 fields: Composite((
+///                     (Some("foo"), foo),
+///                     (Some("bar"), bar)
+///                 ))
+///             }.encode_as_type_to(type_id, types, context, out)
+///         }
+///     }
+/// }
+/// ```
 #[doc(hidden)]
 pub struct Variant<Tuples> {
     pub name: &'static str,

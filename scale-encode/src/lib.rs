@@ -15,9 +15,8 @@ use scale_info::PortableRegistry;
 pub use context::Context;
 pub use error::Error;
 
-// These are exposed to be used in the proc macro crate and aren't part of the public interface.
-#[doc(hidden)]
-pub mod __internal {
+/// Some utility types that are useful in order to help implement `EncodeAsType`.
+pub mod utils {
     pub use crate::impls::{
         Composite,
         Variant
@@ -26,7 +25,10 @@ pub mod __internal {
 }
 
 #[cfg(feature = "derive")]
-pub use scale_encode_derive::EncodeAsType;
+pub use scale_encode_derive::{
+    EncodeAsType,
+    encode_as_type
+};
 
 /// This trait signals that some static type can possibly be SCALE encoded given some
 /// `type_id` and [`PortableRegistry`] which dictates the expected encoding. A [`Context`]

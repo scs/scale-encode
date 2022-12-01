@@ -15,8 +15,30 @@ use crate::{
 };
 use std::collections::HashMap;
 
-/// This type represents named or unnamed composite values. It's used in derive macros
-/// so that we can keep the logic here and the derive code light weight.
+/// This type represents named or unnamed composite values, and can be used
+/// to help generate `EncodeAsType` impls. It's primarily used by the exported
+/// macros to do just that.
+///
+/// ```rust
+/// use scale_encode::utils::{ Composite, PortableRegistry };
+/// use scale_encode::{ Error, Context, EncodeAsType };
+///
+/// struct MyType {
+///    foo: bool,
+///    bar: u64,
+///    wibble: String
+/// }
+///
+/// impl EncodeAsType for MyType {
+///     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+///         Composite((
+///             (Some("foo"), &self.foo),
+///             (Some("bar"), &self.bar),
+///             (Some("wibble"), &self.wibble)
+///         )).encode_as_type_to(type_id, types, context, out)
+///     }
+/// }
+/// ```
 #[doc(hidden)]
 pub struct Composite<Tuples>(pub Tuples);
 

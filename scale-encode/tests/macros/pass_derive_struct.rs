@@ -3,7 +3,7 @@ use scale_encode::EncodeAsType;
 // Single field named struct
 #[derive(EncodeAsType)]
 // this should lead to no issues:
-#[encode_as_type(path = "::scale_encode")]
+#[encode_as_type(crate_path = "::scale_encode")]
 struct Foo {
     some_field: u8
 }
