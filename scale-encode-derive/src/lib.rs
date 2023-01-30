@@ -28,11 +28,6 @@ const ATTR_NAME: &str = "encode_as_type";
 ///   By default, the macro expects `scale_encode` to be a top level dependency,
 ///   available as `::scale_encode`. If this is not the case, you can provide the
 ///   crate path here.
-/// - `#[encode_as_type(type_path = "::path::to::ForeignType")]`:
-///   By default, the macro will generate an impl for the type it's given. If you'd like
-///   to use the given type as a template to generate an impl for some foreign type, you
-///   can pass a path to the foreign type to generate the impl for here. This is mainly
-///   used with the `#[encode_as_type]` attribute macro (and indeed is necessary there).
 /// - `#[encode_as_type(trait_bounds = "T: Foo, U::Input: EncodeAsType")]`:
 ///   By default, for each generate type parameter, the macro will add trait bounds such
 ///   that these type parameters must implement `EncodeAsType` too. You can override this
@@ -51,35 +46,6 @@ pub fn derive_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         Ok(attrs) => attrs,
         Err(e) => return e.write_errors().into()
     };
-
-    derive_with_attrs(attrs, input).into()
-}
-
-/// The `#[encode_as_type]` attribute macro is similar in what it generates to the `#[derive(EncodeAsType)]`
-/// macro. The main difference is that this macro is used to generate an `EncodeAsType` implementation on
-/// some foreign type. As such, the `#[encode_as_type(type_path = "::path::to::ForeignType")]` attribute
-/// is mandatory in order to specify the foreign type to generate the impl for.
-///
-/// The struct or variant that this `#[encode_as_type]` attribute macro is placed on is used simply as a
-/// template to generate the correct impl, and so should mirror the foreign type. It will disappear from
-/// the code otherwise.
-#[proc_macro_attribute]
-pub fn encode_as_type(attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(item as DeriveInput);
-
-    // parse top level attrs.
-    let attrs = match TopLevelAttrs::parse(&input.attrs) {
-        Ok(attrs) => attrs,
-        Err(e) => return e.write_errors().into()
-    };
-
-    // Require a type_path to be given for the attr macro.
-    if attrs.type_path.is_none() {
-        return syn::Error::new_spanned(
-            TokenStream2::from(attr),
-            "The #[encode_as_type] attribute macro requires that #[encode_as_type(type_path = \"::path::to::Type\")] is given"
-        ).into_compile_error().into()
-    }
 
     derive_with_attrs(attrs, input).into()
 }
@@ -103,8 +69,7 @@ fn derive_with_attrs(attrs: TopLevelAttrs, input: DeriveInput) -> TokenStream2 {
 
 fn generate_enum_impl(attrs: TopLevelAttrs, input: &DeriveInput, details: &syn::DataEnum) -> TokenStream2 {
     let path_to_scale_encode = &attrs.crate_path;
-    let default_path_to_type = input.ident.clone().into();
-    let path_to_type = attrs.type_path.as_ref().unwrap_or(&default_path_to_type);
+    let path_to_type: syn::Path = input.ident.clone().into();
     let (impl_generics, ty_generics, where_clause) = handle_generics(&attrs, &input.generics);
 
     // For each variant we want to spit out a match arm.
@@ -146,8 +111,7 @@ fn generate_enum_impl(attrs: TopLevelAttrs, input: &DeriveInput, details: &syn::
 
 fn generate_struct_impl(attrs: TopLevelAttrs, input: &DeriveInput, details: &syn::DataStruct) -> TokenStream2 {
     let path_to_scale_encode = &attrs.crate_path;
-    let default_path_to_type = input.ident.clone().into();
-    let path_to_type = attrs.type_path.as_ref().unwrap_or(&default_path_to_type);
+    let path_to_type: syn::Path = input.ident.clone().into();
     let (impl_generics, ty_generics, where_clause) = handle_generics(&attrs, &input.generics);
 
     let (matcher, composite) = fields_to_matcher_and_composite(&path_to_scale_encode, &details.fields);
@@ -261,8 +225,6 @@ fn fields_to_matcher_and_composite(path_to_scale_encode: &syn::Path, fields: &sy
 struct TopLevelAttrs {
     // path to the scale_encode crate, in case it's not a top level dependency.
     crate_path: syn::Path,
-    // path to the type that we're generating the impl for. None to use the existing item name
-    type_path: Option<syn::Path>,
     // allow custom trait bounds to be used instead of the defaults.
     trait_bounds: Option<Punctuated<syn::WherePredicate, syn::Token!(,)>>
 }
@@ -276,14 +238,11 @@ impl TopLevelAttrs {
             #[darling(default)]
             crate_path: Option<syn::Path>,
             #[darling(default)]
-            type_path: Option<syn::Path>,
-            #[darling(default)]
             trait_bounds: Option<Punctuated<syn::WherePredicate, syn::Token!(,)>>
         }
 
         let mut res = TopLevelAttrs {
             crate_path: syn::parse_quote!(::scale_encode),
-            type_path: None,
             trait_bounds: None
         };
 
@@ -295,7 +254,6 @@ impl TopLevelAttrs {
             let meta = attr.parse_meta()?;
             let parsed_attrs = TopLevelAttrsInner::from_meta(&meta)?;
 
-            res.type_path = parsed_attrs.type_path;
             res.trait_bounds = parsed_attrs.trait_bounds;
             if let Some(crate_path) = parsed_attrs.crate_path {
                 res.crate_path = crate_path;

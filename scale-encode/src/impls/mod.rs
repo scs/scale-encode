@@ -447,8 +447,8 @@ mod test {
     }
 
     fn encodes_like_codec<V: Encode + EncodeAsType + PartialEq + Debug + TypeInfo + 'static>(value: V) {
-        let bytes = encode_type::<_, V>(&value).expect("can encode");
         let encode_bytes = value.encode();
+        let bytes = encode_type::<V, V>(value).expect("can encode");
         assert_eq!(bytes, encode_bytes, "scale-encode encoded differently from parity-scale-codec");
     }
 
@@ -510,6 +510,14 @@ mod test {
     }
 
     #[test]
+    fn sequence_encodes_like_scale_codec() {
+        let (type_id, types) = make_type::<Vec<u8>>();
+        let e = vec![1u8,2,3].encode();
+        let e2 = vec![1u8,2,3].encode_as_type(type_id, &types, Context::new()).expect("can encode 2");
+        assert_eq!(e, e2);
+    }
+
+    #[test]
     fn basic_types_encode_like_scale_codec() {
         encodes_like_codec(true);
         encodes_like_codec(false);
@@ -521,6 +529,7 @@ mod test {
         encodes_like_codec(());
         encodes_like_codec(std::marker::PhantomData::<()>);
         encodes_like_codec([1,2,3,4,5]);
+        encodes_like_codec([1u8,2,3,4,5]);
         encodes_like_codec(vec![1,2,3,4,5]);
         encodes_like_codec(&[1,2,3,4,5]);
         encodes_like_codec(Some(1234u32));

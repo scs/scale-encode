@@ -25,10 +25,7 @@ pub mod utils {
 }
 
 #[cfg(feature = "derive")]
-pub use scale_encode_derive::{
-    EncodeAsType,
-    encode_as_type
-};
+pub use scale_encode_derive::EncodeAsType;
 
 /// This trait signals that some static type can possibly be SCALE encoded given some
 /// `type_id` and [`PortableRegistry`] which dictates the expected encoding. A [`Context`]

@@ -1,7 +1,0 @@
-error: The #[encode_as_type] attribute macro requires that #[encode_as_type(type_path = "::path::to::Type")] is given
- --> tests/macros/fail_attr_type_path_needed.rs:5:1
-  |
-5 | #[encode_as_type]
-  | ^^^^^^^^^^^^^^^^^
-  |
-  = note: this error originates in the attribute macro `encode_as_type` (in Nightly builds, run with -Z macro-backtrace for more info)
