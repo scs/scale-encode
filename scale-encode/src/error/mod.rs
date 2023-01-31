@@ -1,3 +1,18 @@
+// Copyright (C) 2023 Parity Technologies (UK) Ltd. (admin@parity.io)
+// This file is a part of the scale-value crate.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//         http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 //! An error that is emitted whenever some encoding fails.
 mod context;
 mod linkedlist;
@@ -15,12 +30,16 @@ pub struct Error {
 }
 
 impl Error {
-    /// construct a new error given some context and an error kind.
+    /// Construct a new error given an error kind.
     pub fn new(kind: ErrorKind) -> Error {
         Error {
             context: Context::new(),
             kind
         }
+    }
+    /// Construct a new, custom error.
+    pub fn custom(error: impl Into<CustomError>) -> Error {
+        Error::new(ErrorKind::Custom(error.into()))
     }
     /// Retrieve more information abotu what went wrong.
     pub fn kind(&self) -> &ErrorKind {
@@ -116,8 +135,10 @@ pub enum ErrorKind {
     },
     /// A custom error.
     #[error("Custom error: {0}")]
-    Custom(Box<dyn std::error::Error + Send + Sync + 'static>)
+    Custom(CustomError)
 }
+
+type CustomError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 /// The kind of type that we're trying to encode.
 #[allow(missing_docs)]
@@ -132,4 +153,21 @@ pub enum Kind {
     Char,
     Str,
     Number,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[derive(thiserror::Error, Debug)]
+    enum MyError {
+        #[error("Foo!")]
+        Foo
+    }
+
+    #[test]
+    fn custom_error() {
+        // Just a compile-time check that we can ergonomically provide an arbitrary custom error:
+        Error::custom(MyError::Foo);
+    }
 }
