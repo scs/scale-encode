@@ -10,8 +10,7 @@ use codec::{
 };
 use crate::{
     EncodeAsType,
-    context::{ Context, Location },
-    error::{ Error, ErrorKind, Kind }
+    error::{ Error, ErrorKind, Kind, Location }
 };
 use std::collections::HashMap;
 
@@ -21,7 +20,7 @@ use std::collections::HashMap;
 ///
 /// ```rust
 /// use scale_encode::utils::{ Composite, PortableRegistry };
-/// use scale_encode::{ Error, Context, EncodeAsType };
+/// use scale_encode::{ Error, EncodeAsType };
 ///
 /// struct MyType {
 ///    foo: bool,
@@ -30,12 +29,12 @@ use std::collections::HashMap;
 /// }
 ///
 /// impl EncodeAsType for MyType {
-///     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+///     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, out: &mut Vec<u8>) -> Result<(), Error> {
 ///         Composite((
 ///             (Some("foo"), &self.foo),
 ///             (Some("bar"), &self.bar),
 ///             (Some("wibble"), &self.wibble)
-///         )).encode_as_type_to(type_id, types, context, out)
+///         )).encode_as_type_to(type_id, types, out)
 ///     }
 /// }
 /// ```
@@ -54,13 +53,13 @@ macro_rules! impl_encode_composite {
             #[allow(unused_assignments)]
             #[allow(unused_mut)]
             #[allow(unused_variables)]
-            fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+            fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, out: &mut Vec<u8>) -> Result<(), Error> {
                 let ($($name,)*) = &self.0;
 
                 const LEN: usize = count_idents!($($t,)*);
                 let ty = types
                     .resolve(type_id)
-                    .ok_or_else(|| Error::new(context.clone(), ErrorKind::TypeNotFound(type_id)))?;
+                    .ok_or_else(|| Error::new(ErrorKind::TypeNotFound(type_id)))?;
 
                 // As long as the lengths line up, to the number of tuple items, we'll
                 // do our best to encode each inner type as needed.
@@ -69,12 +68,14 @@ macro_rules! impl_encode_composite {
                         let fields = tuple.fields();
                         let mut idx = 0;
                         $({
-                            let context = if let Some(name) = $name.0 {
-                                context.at(Location::field(name))
+                            let loc = if let Some(name) = $name.0 {
+                                Location::field(name)
                             } else {
-                                context.at(Location::idx(idx))
+                                Location::idx(idx)
                             };
-                            $name.1.encode_as_type_to(fields[idx].id(), types, context, out)?;
+                            $name.1
+                                .encode_as_type_to(fields[idx].id(), types, out)
+                                .map_err(|e| e.at(loc))?;
                             idx += 1;
                         })*
                         Ok(())
@@ -82,12 +83,14 @@ macro_rules! impl_encode_composite {
                     TypeDef::Array(array) if array.len() == LEN as u32 => {
                         let mut idx = 0;
                         $({
-                            let context = if let Some(name) = $name.0 {
-                                context.at(Location::field(name))
+                            let loc = if let Some(name) = $name.0 {
+                                Location::field(name)
                             } else {
-                                context.at(Location::idx(idx))
+                                Location::idx(idx)
                             };
-                            $name.1.encode_as_type_to(array.type_param().id(), types, context, out)?;
+                            $name.1
+                                .encode_as_type_to(array.type_param().id(), types, out)
+                                .map_err(|e| e.at(loc))?;
                             idx += 1;
                         })*
                         Ok(())
@@ -97,19 +100,21 @@ macro_rules! impl_encode_composite {
                         // sequences start with compact encoded length:
                         Compact(LEN as u32).encode_to(out);
                         $({
-                            let context = if let Some(name) = $name.0 {
-                                context.at(Location::field(name))
+                            let loc = if let Some(name) = $name.0 {
+                                Location::field(name)
                             } else {
-                                context.at(Location::idx(idx))
+                                Location::idx(idx)
                             };
-                            $name.1.encode_as_type_to(seq.type_param().id(), types, context, out)?;
+                            $name.1
+                                .encode_as_type_to(seq.type_param().id(), types, out)
+                                .map_err(|e| e.at(loc))?;
                             idx += 1;
                         })*
                         Ok(())
                     },
                     TypeDef::Composite(composite) if composite.fields().len() == LEN => {
                         let fields = composite.fields();
-                        self.encode_fields_to(fields, type_id, types, context, out)
+                        self.encode_fields_to(fields, type_id, types, out)
                     },
                     _ => {
                         // Tuple with 1 entry? before giving up, try encoding the inner entry instead:
@@ -118,12 +123,13 @@ macro_rules! impl_encode_composite {
                             // this, but have to accomodate the cases where multiple copies and assume
                             // that the compielr can easily optimise out this branch for LEN != 1.
                             $({
-                                let context = context.at(Location::idx(0));
-                                $name.1.encode_as_type_to(type_id, types, context, out)?;
+                                $name.1
+                                    .encode_as_type_to(type_id, types, out)
+                                    .map_err(|e| e.at_idx(0))?;
                             })*
                             Ok(())
                         } else {
-                            Err(Error::new(context, ErrorKind::WrongShape { actual: Kind::Tuple, expected: type_id }))
+                            Err(Error::new(ErrorKind::WrongShape { actual: Kind::Tuple, expected: type_id }))
                         }
                     }
                 }
@@ -169,7 +175,7 @@ impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: 
 /// A helper trait to encode composite fields. This exists so that we can reuse the same logic for variant fields, too.
 /// It doesn't actually need publically exposing.
 pub (crate) trait EncodeFieldsAsType {
-    fn encode_fields_to(&self, fields: &[Field<PortableForm>], type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error>;
+    fn encode_fields_to(&self, fields: &[Field<PortableForm>], type_id: u32, types: &PortableRegistry, out: &mut Vec<u8>) -> Result<(), Error>;
 }
 
 macro_rules! impl_encode_composite_fields {
@@ -178,7 +184,7 @@ macro_rules! impl_encode_composite_fields {
             #[allow(unused_assignments)]
             #[allow(unused_mut)]
             #[allow(unused_variables)]
-            fn encode_fields_to(&self, fields: &[Field<PortableForm>], type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+            fn encode_fields_to(&self, fields: &[Field<PortableForm>], type_id: u32, types: &PortableRegistry, out: &mut Vec<u8>) -> Result<(), Error> {
                 let ($($name,)*) = &self.0;
                 const LEN: usize = count_idents!($($t,)*);
 
@@ -211,12 +217,12 @@ macro_rules! impl_encode_composite_fields {
                         // Find the field in our source type:
                         let name = field.name().map(|n| &**n).unwrap_or("");
                         let Some(value) = source_fields_by_name.get(name) else {
-                            return Err(Error::new(context, ErrorKind::CannotFindField { name: name.to_string() }))
+                            return Err(Error::new(ErrorKind::CannotFindField { name: name.to_string() }))
                         };
 
                         // Encode the value to the output:
-                        let context = context.at(Location::field(name.to_string()));
-                        value.encode_as_type_to(field.ty().id(), types, context, out)?;
+                        value.encode_as_type_to(field.ty().id(), types, out)
+                            .map_err(|e| e.at_field(name.to_string()))?;
                     }
 
                     Ok(())
@@ -224,7 +230,7 @@ macro_rules! impl_encode_composite_fields {
                     // target fields aren't named, so encode by order only. We need the field length
                     // to line up for this to work.
                     if fields.len() != LEN {
-                        return Err(Error::new(context, ErrorKind::WrongLength {
+                        return Err(Error::new(ErrorKind::WrongLength {
                             actual_len: LEN,
                             expected_len: fields.len(),
                             expected: type_id
@@ -233,12 +239,14 @@ macro_rules! impl_encode_composite_fields {
 
                     let mut idx = 0;
                     $({
-                        let context = if let Some(name) = $name.0 {
-                            context.at(Location::field(name))
+                        let loc = if let Some(name) = $name.0 {
+                            Location::field(name)
                         } else {
-                            context.at(Location::idx(idx))
+                            Location::idx(idx)
                         };
-                        $name.1.encode_as_type_to(fields[idx].ty().id(), types, context, out)?;
+                        $name.1
+                            .encode_as_type_to(fields[idx].ty().id(), types, out)
+                            .map_err(|e| e.at(loc))?;
                         idx += 1;
                     })*
                     Ok(())

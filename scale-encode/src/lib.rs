@@ -5,14 +5,10 @@
 #![deny(missing_docs)]
 
 mod impls;
-mod linkedlist;
 
-pub mod context;
 pub mod error;
 
 use scale_info::PortableRegistry;
-
-pub use context::Context;
 pub use error::Error;
 
 /// Some utility types that are useful in order to help implement `EncodeAsType`.
@@ -35,13 +31,13 @@ pub use scale_encode_derive::EncodeAsType;
 pub trait EncodeAsType {
     /// This is a helper function which internally calls [`EncodeAsType::encode_as_type_to`]. Prefer to
     /// implement that instead.
-    fn encode_as_type(&self, type_id: u32, types: &PortableRegistry, context: Context) -> Result<Vec<u8>, Error> {
+    fn encode_as_type(&self, type_id: u32, types: &PortableRegistry) -> Result<Vec<u8>, Error> {
         let mut out = Vec::new();
-        self.encode_as_type_to(type_id, types, context, &mut out)?;
+        self.encode_as_type_to(type_id, types, &mut out)?;
         Ok(out)
     }
 
     /// Given some `type_id`, `types`, a `context` and some output target for the SCALE encoded bytes,
     /// attempt to SCALE encode the current value into the type given by `type_id`.
-    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error>;
+    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, out: &mut Vec<u8>) -> Result<(), Error>;
 }

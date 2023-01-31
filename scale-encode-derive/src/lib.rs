@@ -84,7 +84,6 @@ fn generate_enum_impl(attrs: TopLevelAttrs, input: &DeriveInput, details: &syn::
                     .encode_as_type_to(
                         __encode_as_type_type_id,
                         __encode_as_type_types,
-                        __encode_as_type_context,
                         __encode_as_type_out
                     )
             }
@@ -98,7 +97,6 @@ fn generate_enum_impl(attrs: TopLevelAttrs, input: &DeriveInput, details: &syn::
                 // long variable names to prevent conflict with struct field names:
                 __encode_as_type_type_id: u32,
                 __encode_as_type_types: &#path_to_scale_encode::utils::PortableRegistry,
-                __encode_as_type_context: #path_to_scale_encode::Context,
                 __encode_as_type_out: &mut Vec<u8>
             ) -> Result<(), #path_to_scale_encode::Error> {
                 match self {
@@ -123,14 +121,12 @@ fn generate_struct_impl(attrs: TopLevelAttrs, input: &DeriveInput, details: &syn
                 // long variable names to prevent conflict with struct field names:
                 __encode_as_type_type_id: u32,
                 __encode_as_type_types: &#path_to_scale_encode::utils::PortableRegistry,
-                __encode_as_type_context: #path_to_scale_encode::Context,
                 __encode_as_type_out: &mut Vec<u8>
             ) -> Result<(), #path_to_scale_encode::Error> {
                 let #path_to_type #matcher = self;
                 #composite.encode_as_type_to(
                     __encode_as_type_type_id,
                     __encode_as_type_types,
-                    __encode_as_type_context,
                     __encode_as_type_out
                 )
             }

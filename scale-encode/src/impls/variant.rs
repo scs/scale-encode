@@ -7,7 +7,6 @@ use codec::{
 };
 use crate::{
     EncodeAsType,
-    context::{ Context },
     error::{ Error, ErrorKind, Kind }
 };
 use super::composite::EncodeFieldsAsType;
@@ -18,7 +17,7 @@ use super::composite::EncodeFieldsAsType;
 ///
 /// ```rust
 /// use scale_encode::utils::{ Composite, Variant, PortableRegistry };
-/// use scale_encode::{ Error, Context, EncodeAsType };
+/// use scale_encode::{ Error, EncodeAsType };
 ///
 /// enum MyType {
 ///    SomeField(bool),
@@ -26,21 +25,21 @@ use super::composite::EncodeFieldsAsType;
 /// }
 ///
 /// impl EncodeAsType for MyType {
-///     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+///     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, out: &mut Vec<u8>) -> Result<(), Error> {
 ///         match self {
 ///             MyType::SomeField(b) => Variant {
 ///                 name: "SomeField",
 ///                 fields: Composite((
 ///                     (None, b),
 ///                 ))
-///             }.encode_as_type_to(type_id, types, context, out),
+///             }.encode_as_type_to(type_id, types, out),
 ///             MyType::OtherField { foo, bar } => Variant {
 ///                 name: "OtherField",
 ///                 fields: Composite((
 ///                     (Some("foo"), foo),
 ///                     (Some("bar"), bar)
 ///                 ))
-///             }.encode_as_type_to(type_id, types, context, out)
+///             }.encode_as_type_to(type_id, types, out)
 ///         }
 ///     }
 /// }
@@ -52,23 +51,23 @@ pub struct Variant<Tuples> {
 }
 
 impl <Tuples> EncodeAsType for Variant<Tuples> where super::composite::Composite<Tuples>: EncodeFieldsAsType {
-    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, context: Context, out: &mut Vec<u8>) -> Result<(), Error> {
+    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, out: &mut Vec<u8>) -> Result<(), Error> {
         let type_id = super::find_single_entry_with_same_repr(type_id, types);
         let ty = types
             .resolve(type_id)
-            .ok_or_else(|| Error::new(context.clone(), ErrorKind::TypeNotFound(type_id)))?;
+            .ok_or_else(|| Error::new(ErrorKind::TypeNotFound(type_id)))?;
 
         match ty.type_def() {
             TypeDef::Variant(var) => {
                 let vars = var.variants();
                 let Some(v) = vars.iter().find(|v| v.name == self.name) else {
-                    return Err(Error::new(context, ErrorKind::CannotFindVariant { name: self.name.to_string(), expected: type_id }));
+                    return Err(Error::new(ErrorKind::CannotFindVariant { name: self.name.to_string(), expected: type_id }));
                 };
                 v.index().encode_to(out);
-                self.fields.encode_fields_to(v.fields(), type_id, types, context, out)
+                self.fields.encode_fields_to(v.fields(), type_id, types, out)
             },
             _ => {
-                Err(Error::new(context, ErrorKind::WrongShape { actual: Kind::Str, expected: type_id }))
+                Err(Error::new(ErrorKind::WrongShape { actual: Kind::Str, expected: type_id }))
             }
         }
     }

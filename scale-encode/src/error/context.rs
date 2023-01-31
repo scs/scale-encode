@@ -3,7 +3,7 @@
 //! that we're attempting to encode to aid in error reporting.
 
 use std::borrow::Cow;
-use crate::linkedlist::{ LinkedList };
+use super::linkedlist::{ LinkedList };
 
 /// A cheaply clonable opaque context which allows us to track the current
 /// location into a type that we're trying to encode, to aid in

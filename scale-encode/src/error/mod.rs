@@ -1,10 +1,14 @@
 //! An error that is emitted whenever some encoding fails.
+mod context;
+mod linkedlist;
 
 use std::fmt::Display;
-use crate::context::Context;
+use std::borrow::Cow;
+
+pub use context::{ Context, Location };
 
 /// An error produced while attempting to encode some type.
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub struct Error {
     context: Context,
     kind: ErrorKind,
@@ -12,9 +16,9 @@ pub struct Error {
 
 impl Error {
     /// construct a new error given some context and an error kind.
-    pub fn new(context: Context, kind: ErrorKind) -> Error {
+    pub fn new(kind: ErrorKind) -> Error {
         Error {
-            context,
+            context: Context::new(),
             kind
         }
     }
@@ -25,6 +29,34 @@ impl Error {
     /// Retrieve details about where the error occurred.
     pub fn context(&self) -> &Context {
         &self.context
+    }
+    /// Give some context to the error.
+    pub fn at(self, loc: Location) -> Self {
+        Error {
+            context: self.context.at(loc),
+            kind: self.kind
+        }
+    }
+    /// Note which sequence index the error occurred in.
+    pub fn at_idx(self, idx: usize) -> Self {
+        Error {
+            context: self.context.at(Location::idx(idx)),
+            kind: self.kind
+        }
+    }
+    /// Note which field the error occurred in.
+    pub fn at_field(self, field: impl Into<Cow<'static, str>>) -> Self {
+        Error {
+            context: self.context.at(Location::field(field)),
+            kind: self.kind
+        }
+    }
+    /// Note which variant the error occurred in.
+    pub fn at_variant(self, variant: impl Into<Cow<'static, str>>) -> Self {
+        Error {
+            context: self.context.at(Location::variant(variant)),
+            kind: self.kind
+        }
     }
 }
 
@@ -37,7 +69,7 @@ impl Display for Error {
 }
 
 /// The underlying nature of the error.
-#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
     /// Cannot find a given type.
 	#[error("Cannot find type with ID {0}")]
@@ -81,7 +113,10 @@ pub enum ErrorKind {
     CannotFindField {
         /// Name of the field which was not provided.
         name: String
-    }
+    },
+    /// A custom error.
+    #[error("Custom error: {0}")]
+    Custom(Box<dyn std::error::Error + Send + Sync + 'static>)
 }
 
 /// The kind of type that we're trying to encode.
