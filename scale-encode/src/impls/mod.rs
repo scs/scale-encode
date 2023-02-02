@@ -94,7 +94,7 @@ impl <'a, T> EncodeAsType for &'a T where T: EncodeAsType + ?Sized {
     }
 }
 
-impl <'a, T> EncodeAsType for std::borrow::Cow<'a, T> where T: EncodeAsType + Clone + ?Sized {
+impl <'a, T> EncodeAsType for std::borrow::Cow<'a, T> where T: 'a + EncodeAsType + ToOwned + ?Sized {
     fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, out: &mut Vec<u8>) -> Result<(), Error> {
         (**self).encode_as_type_to(type_id, types, out)
     }
