@@ -26,7 +26,7 @@ const ATTR_NAME: &str = "encode_as_type";
 ///
 /// ```rust
 /// use scale_encode as alt_path;
-/// use scale_encode::EncodeAsType
+/// use scale_encode::EncodeAsType;
 ///
 /// #[derive(EncodeAsType)]
 /// #[encode_as_type(trait_bounds = "", crate_path = "alt_path")]
