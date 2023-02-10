@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, format_ident};
-use syn::{parse_macro_input, DeriveInput, punctuated::Punctuated};
+use quote::{format_ident, quote};
+use syn::{parse_macro_input, punctuated::Punctuated, DeriveInput};
 
 const ATTR_NAME: &str = "encode_as_type";
 
@@ -59,7 +59,7 @@ pub fn derive_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // parse top level attrs.
     let attrs = match TopLevelAttrs::parse(&input.attrs) {
         Ok(attrs) => attrs,
-        Err(e) => return e.write_errors().into()
+        Err(e) => return e.write_errors().into(),
     };
 
     derive_with_attrs(attrs, input).into()
@@ -68,21 +68,22 @@ pub fn derive_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 fn derive_with_attrs(attrs: TopLevelAttrs, input: DeriveInput) -> TokenStream2 {
     // what type is the derive macro declared on?
     match &input.data {
-        syn::Data::Enum(details) => {
-            generate_enum_impl(attrs, &input, details).into()
-        },
-        syn::Data::Struct(details) => {
-            generate_struct_impl(attrs, &input, details).into()
-        },
-        syn::Data::Union(_) => {
-            syn::Error::new(input.ident.span(), "Unions are not supported by the EncodeAsType macro")
-                .into_compile_error()
-                .into()
-        }
+        syn::Data::Enum(details) => generate_enum_impl(attrs, &input, details).into(),
+        syn::Data::Struct(details) => generate_struct_impl(attrs, &input, details).into(),
+        syn::Data::Union(_) => syn::Error::new(
+            input.ident.span(),
+            "Unions are not supported by the EncodeAsType macro",
+        )
+        .into_compile_error()
+        .into(),
     }
 }
 
-fn generate_enum_impl(attrs: TopLevelAttrs, input: &DeriveInput, details: &syn::DataEnum) -> TokenStream2 {
+fn generate_enum_impl(
+    attrs: TopLevelAttrs,
+    input: &DeriveInput,
+    details: &syn::DataEnum,
+) -> TokenStream2 {
     let path_to_scale_encode = &attrs.crate_path;
     let path_to_type: syn::Path = input.ident.clone().into();
     let (impl_generics, ty_generics, where_clause) = handle_generics(&attrs, &input.generics);
@@ -122,12 +123,17 @@ fn generate_enum_impl(attrs: TopLevelAttrs, input: &DeriveInput, details: &syn::
     )
 }
 
-fn generate_struct_impl(attrs: TopLevelAttrs, input: &DeriveInput, details: &syn::DataStruct) -> TokenStream2 {
+fn generate_struct_impl(
+    attrs: TopLevelAttrs,
+    input: &DeriveInput,
+    details: &syn::DataStruct,
+) -> TokenStream2 {
     let path_to_scale_encode = &attrs.crate_path;
     let path_to_type: syn::Path = input.ident.clone().into();
     let (impl_generics, ty_generics, where_clause) = handle_generics(&attrs, &input.generics);
 
-    let (matcher, composite) = fields_to_matcher_and_composite(&path_to_scale_encode, &details.fields);
+    let (matcher, composite) =
+        fields_to_matcher_and_composite(&path_to_scale_encode, &details.fields);
 
     quote!(
         impl #impl_generics #path_to_scale_encode::EncodeAsType for #path_to_type #ty_generics #where_clause {
@@ -149,7 +155,14 @@ fn generate_struct_impl(attrs: TopLevelAttrs, input: &DeriveInput, details: &syn
     )
 }
 
-fn handle_generics<'a>(attrs: &TopLevelAttrs, generics: &'a syn::Generics) -> (syn::ImplGenerics<'a>, syn::TypeGenerics<'a>, syn::WhereClause) {
+fn handle_generics<'a>(
+    attrs: &TopLevelAttrs,
+    generics: &'a syn::Generics,
+) -> (
+    syn::ImplGenerics<'a>,
+    syn::TypeGenerics<'a>,
+    syn::WhereClause,
+) {
     let path_to_crate = &attrs.crate_path;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
@@ -158,34 +171,34 @@ fn handle_generics<'a>(attrs: &TopLevelAttrs, generics: &'a syn::Generics) -> (s
     if let Some(where_predicates) = &attrs.trait_bounds {
         // if custom trait bounds are given, append those to the where clause.
         where_clause.predicates.extend(where_predicates.clone());
-
     } else {
         // else, append our default EncodeAsType bounds to the where clause.
         for param in generics.type_params() {
             let ty = &param.ident;
-            where_clause.predicates.push(syn::parse_quote!(#ty: #path_to_crate::EncodeAsType))
+            where_clause
+                .predicates
+                .push(syn::parse_quote!(#ty: #path_to_crate::EncodeAsType))
         }
     }
 
     (impl_generics, ty_generics, where_clause)
 }
 
-fn fields_to_matcher_and_composite(path_to_scale_encode: &syn::Path, fields: &syn::Fields) -> (TokenStream2, TokenStream2) {
+fn fields_to_matcher_and_composite(
+    path_to_scale_encode: &syn::Path,
+    fields: &syn::Fields,
+) -> (TokenStream2, TokenStream2) {
     match fields {
         syn::Fields::Named(fields) => {
-            let match_body = fields.named
-                .iter()
-                .map(|f| {
-                    let field_name = &f.ident;
-                    quote!(#field_name)
-                });
-            let tuple_body = fields.named
-                .iter()
-                .map(|f| {
-                    let field_name_str = f.ident.as_ref().unwrap().to_string();
-                    let field_name = &f.ident;
-                    quote!((Some(#field_name_str), #field_name))
-                });
+            let match_body = fields.named.iter().map(|f| {
+                let field_name = &f.ident;
+                quote!(#field_name)
+            });
+            let tuple_body = fields.named.iter().map(|f| {
+                let field_name_str = f.ident.as_ref().unwrap().to_string();
+                let field_name = &f.ident;
+                quote!((Some(#field_name_str), #field_name))
+            });
             // add a closing comma if one field to make sure that the thing we generate
             // is still seen as a tuple and not just brackets around an item.
             let closing_comma = if fields.named.len() == 1 {
@@ -195,23 +208,20 @@ fn fields_to_matcher_and_composite(path_to_scale_encode: &syn::Path, fields: &sy
             };
             (
                 quote!({#( #match_body ),*}),
-                quote!(#path_to_scale_encode::utils::Composite((#( #tuple_body ),* #closing_comma)))
+                quote!(#path_to_scale_encode::utils::Composite((#( #tuple_body ),* #closing_comma))),
             )
-        },
+        }
         syn::Fields::Unnamed(fields) => {
-            let field_idents: Vec<syn::Ident> = fields.unnamed
+            let field_idents: Vec<syn::Ident> = fields
+                .unnamed
                 .iter()
                 .enumerate()
                 .map(|(idx, _)| format_ident!("_{idx}"))
                 .collect();
-            let match_body = field_idents
-                .iter()
-                .map(|i| quote!(#i));
+            let match_body = field_idents.iter().map(|i| quote!(#i));
             let tuple_body = field_idents
                 .iter()
-                .map(|i| {
-                    quote!((None as Option<&'static str>, #i))
-                });
+                .map(|i| quote!((None as Option<&'static str>, #i)));
             // add a closing comma if one field to make sure that the thing we generate
             // is still seen as a tuple and not just brackets around an item.
             let closing_comma = if fields.unnamed.len() == 1 {
@@ -221,15 +231,13 @@ fn fields_to_matcher_and_composite(path_to_scale_encode: &syn::Path, fields: &sy
             };
             (
                 quote!((#( #match_body ),*)),
-                quote!(#path_to_scale_encode::utils::Composite((#( #tuple_body ),* #closing_comma)))
-            )
-        },
-        syn::Fields::Unit => {
-            (
-                quote!(),
-                quote!(#path_to_scale_encode::utils::Composite(()))
+                quote!(#path_to_scale_encode::utils::Composite((#( #tuple_body ),* #closing_comma))),
             )
         }
+        syn::Fields::Unit => (
+            quote!(),
+            quote!(#path_to_scale_encode::utils::Composite(())),
+        ),
     }
 }
 
@@ -237,7 +245,7 @@ struct TopLevelAttrs {
     // path to the scale_encode crate, in case it's not a top level dependency.
     crate_path: syn::Path,
     // allow custom trait bounds to be used instead of the defaults.
-    trait_bounds: Option<Punctuated<syn::WherePredicate, syn::Token!(,)>>
+    trait_bounds: Option<Punctuated<syn::WherePredicate, syn::Token!(,)>>,
 }
 
 impl TopLevelAttrs {
@@ -249,18 +257,18 @@ impl TopLevelAttrs {
             #[darling(default)]
             crate_path: Option<syn::Path>,
             #[darling(default)]
-            trait_bounds: Option<Punctuated<syn::WherePredicate, syn::Token!(,)>>
+            trait_bounds: Option<Punctuated<syn::WherePredicate, syn::Token!(,)>>,
         }
 
         let mut res = TopLevelAttrs {
             crate_path: syn::parse_quote!(::scale_encode),
-            trait_bounds: None
+            trait_bounds: None,
         };
 
         // look at each top level attr. parse any for encode_as_type.
         for attr in attrs {
             if !attr.path.is_ident(ATTR_NAME) {
-                continue
+                continue;
             }
             let meta = attr.parse_meta()?;
             let parsed_attrs = TopLevelAttrsInner::from_meta(&meta)?;

@@ -23,15 +23,12 @@ mod impls;
 
 pub mod error;
 
-use scale_info::PortableRegistry;
 pub use error::Error;
+use scale_info::PortableRegistry;
 
 /// Some utility types that are useful in order to help implement `EncodeAsType`.
 pub mod utils {
-    pub use crate::impls::{
-        Composite,
-        Variant
-    };
+    pub use crate::impls::{Composite, Variant};
     pub use scale_info::PortableRegistry;
 }
 
@@ -54,5 +51,10 @@ pub trait EncodeAsType {
 
     /// Given some `type_id`, `types`, a `context` and some output target for the SCALE encoded bytes,
     /// attempt to SCALE encode the current value into the type given by `type_id`.
-    fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, out: &mut Vec<u8>) -> Result<(), Error>;
+    fn encode_as_type_to(
+        &self,
+        type_id: u32,
+        types: &PortableRegistry,
+        out: &mut Vec<u8>,
+    ) -> Result<(), Error>;
 }

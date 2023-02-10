@@ -17,10 +17,10 @@
 mod context;
 mod linkedlist;
 
-use std::fmt::Display;
 use std::borrow::Cow;
+use std::fmt::Display;
 
-pub use context::{ Context, Location };
+pub use context::{Context, Location};
 
 /// An error produced while attempting to encode some type.
 #[derive(Debug, thiserror::Error)]
@@ -34,7 +34,7 @@ impl Error {
     pub fn new(kind: ErrorKind) -> Error {
         Error {
             context: Context::new(),
-            kind
+            kind,
         }
     }
     /// Construct a new, custom error.
@@ -53,28 +53,28 @@ impl Error {
     pub fn at(self, loc: Location) -> Self {
         Error {
             context: self.context.at(loc),
-            kind: self.kind
+            kind: self.kind,
         }
     }
     /// Note which sequence index the error occurred in.
     pub fn at_idx(self, idx: usize) -> Self {
         Error {
             context: self.context.at(Location::idx(idx)),
-            kind: self.kind
+            kind: self.kind,
         }
     }
     /// Note which field the error occurred in.
     pub fn at_field(self, field: impl Into<Cow<'static, str>>) -> Self {
         Error {
             context: self.context.at(Location::field(field)),
-            kind: self.kind
+            kind: self.kind,
         }
     }
     /// Note which variant the error occurred in.
     pub fn at_variant(self, variant: impl Into<Cow<'static, str>>) -> Self {
         Error {
             context: self.context.at(Location::variant(variant)),
-            kind: self.kind
+            kind: self.kind,
         }
     }
 }
@@ -91,25 +91,25 @@ impl Display for Error {
 #[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
     /// Cannot find a given type.
-	#[error("Cannot find type with ID {0}")]
+    #[error("Cannot find type with ID {0}")]
     TypeNotFound(u32),
     /// Cannot encode the actual type given into the target type ID.
-	#[error("Cannot encode {actual:?} into type with ID {expected}")]
+    #[error("Cannot encode {actual:?} into type with ID {expected}")]
     WrongShape {
         /// The actual kind we have to encode
         actual: Kind,
         /// ID of the expected type.
-        expected: u32
+        expected: u32,
     },
     /// The types line up, but the expected length of the target type is different from the length of the input value.
-	#[error("Cannot encode to ID {expected}; expected length {expected_len} but got length {actual_len}")]
+    #[error("Cannot encode to ID {expected}; expected length {expected_len} but got length {actual_len}")]
     WrongLength {
         /// Length we have
         actual_len: usize,
         /// Length expected for type.
         expected_len: usize,
         /// ID of the expected type.
-        expected: u32
+        expected: u32,
     },
     /// We cannot encode the number given into the target type; it's out of range.
     #[error("Number {value} is out of range for target type {expected}")]
@@ -125,24 +125,24 @@ pub enum ErrorKind {
         /// Variant name we can't find in the expected type.
         name: String,
         /// ID of the expected type.
-        expected: u32
+        expected: u32,
     },
     /// Cannot find a field on our source type that's needed for the target type.
     #[error("Field {name} does not exist in our source struct")]
     CannotFindField {
         /// Name of the field which was not provided.
-        name: String
+        name: String,
     },
     /// A custom error.
     #[error("Custom error: {0}")]
-    Custom(CustomError)
+    Custom(CustomError),
 }
 
 type CustomError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 /// The kind of type that we're trying to encode.
 #[allow(missing_docs)]
-#[derive(Copy,Clone,PartialEq,Eq,Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Kind {
     Struct,
     Tuple,
@@ -162,7 +162,7 @@ mod test {
     #[derive(thiserror::Error, Debug)]
     enum MyError {
         #[error("Foo!")]
-        Foo
+        Foo,
     }
 
     #[test]
