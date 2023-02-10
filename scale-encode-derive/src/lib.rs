@@ -68,14 +68,13 @@ pub fn derive_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 fn derive_with_attrs(attrs: TopLevelAttrs, input: DeriveInput) -> TokenStream2 {
     // what type is the derive macro declared on?
     match &input.data {
-        syn::Data::Enum(details) => generate_enum_impl(attrs, &input, details).into(),
-        syn::Data::Struct(details) => generate_struct_impl(attrs, &input, details).into(),
+        syn::Data::Enum(details) => generate_enum_impl(attrs, &input, details),
+        syn::Data::Struct(details) => generate_struct_impl(attrs, &input, details),
         syn::Data::Union(_) => syn::Error::new(
             input.ident.span(),
             "Unions are not supported by the EncodeAsType macro",
         )
-        .into_compile_error()
-        .into(),
+        .into_compile_error(),
     }
 }
 
@@ -93,7 +92,7 @@ fn generate_enum_impl(
         let variant_name = &variant.ident;
         let variant_name_str = variant_name.to_string();
 
-        let (matcher, composite) = fields_to_matcher_and_composite(&path_to_scale_encode, &variant.fields);
+        let (matcher, composite) = fields_to_matcher_and_composite(path_to_scale_encode, &variant.fields);
         quote!(
             Self::#variant_name #matcher => {
                 #path_to_scale_encode::utils::Variant { name: #variant_name_str, fields: #composite }
@@ -133,7 +132,7 @@ fn generate_struct_impl(
     let (impl_generics, ty_generics, where_clause) = handle_generics(&attrs, &input.generics);
 
     let (matcher, composite) =
-        fields_to_matcher_and_composite(&path_to_scale_encode, &details.fields);
+        fields_to_matcher_and_composite(path_to_scale_encode, &details.fields);
 
     quote!(
         impl #impl_generics #path_to_scale_encode::EncodeAsType for #path_to_type #ty_generics #where_clause {

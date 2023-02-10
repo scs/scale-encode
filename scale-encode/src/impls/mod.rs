@@ -389,10 +389,10 @@ macro_rules! impl_encode_like {
         }
     }
 }
-impl_encode_like!(String as &str where |val| &*val);
-impl_encode_like!(Box<T> as &T where |val| &*val);
-impl_encode_like!(Arc<T> as &T where |val| &*val);
-impl_encode_like!(Rc<T> as &T where |val| &*val);
+impl_encode_like!(String as &str where |val| val);
+impl_encode_like!(Box<T> as &T where |val| val);
+impl_encode_like!(Arc<T> as &T where |val| val);
+impl_encode_like!(Rc<T> as &T where |val| val);
 impl_encode_like!(char as u32 where |val| *val as u32);
 impl_encode_like!(NonZeroU8 as u8 where |val| val.get());
 impl_encode_like!(NonZeroU16 as u16 where |val| val.get());
@@ -406,7 +406,7 @@ impl_encode_like!(NonZeroI64 as i64 where |val| val.get());
 impl_encode_like!(NonZeroI128 as i128 where |val| val.get());
 impl_encode_like!(Duration as (u64, u32) where |val| (val.as_secs(), val.subsec_nanos()));
 impl_encode_like!(Range<T> as (&T, &T) where |val| (&val.start, &val.end));
-impl_encode_like!(RangeInclusive<T> as (&T, &T) where |val| (&val.start(), &val.end()));
+impl_encode_like!(RangeInclusive<T> as (&T, &T) where |val| ((val.start()), (val.end())));
 
 // Attempt to recurse into some type, returning the innermost type found that has an identical
 // SCALE encoded representation to the given type. For instance, `(T,)` encodes identically to
@@ -627,7 +627,7 @@ mod test {
         encodes_like_codec([1, 2, 3, 4, 5]);
         encodes_like_codec([1u8, 2, 3, 4, 5]);
         encodes_like_codec(vec![1, 2, 3, 4, 5]);
-        encodes_like_codec(&[1, 2, 3, 4, 5]);
+        encodes_like_codec([1, 2, 3, 4, 5]);
         encodes_like_codec(Some(1234u32));
         encodes_like_codec(None as Option<bool>);
         encodes_like_codec(Ok::<_, &str>("hello"));
