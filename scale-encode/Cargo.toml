@@ -1,6 +1,6 @@
 [package]
 name = "scale-encode"
-version = "0.0.5"
+version = "0.0.6"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 
@@ -14,16 +14,24 @@ keywords = ["parity", "scale", "encoding"]
 include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE"]
 
 [features]
-default = ["bits", "derive"]
-bits = ["dep:scale-bits"]
+default = ["derive", "primitive-types", "bits"]
+
+# Include the derive proc macro
 derive = ["dep:scale-encode-derive"]
+
+# impls for key primitive-types
+primitive-types = ["dep:primitive-types"]
+
+# impls for Bits.
+bits = ["dep:scale-bits"]
 
 [dependencies]
 scale-info = { version = "2.3.0", features = ["bit-vec"] }
 thiserror = "1.0.37"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "full"] }
 scale-bits = { version = "0.3.0", default-features = false, features = ["scale-info"], optional = true }
-scale-encode-derive = { path = "../scale-encode-derive", version = "0.0.5", optional = true }
+scale-encode-derive = { path = "../scale-encode-derive", version = "0.0.6", optional = true }
+primitive-types = { version = "0.12.0", optional = true, default-features = false }
 
 [dev-dependencies]
 bitvec = "1.0.1"
