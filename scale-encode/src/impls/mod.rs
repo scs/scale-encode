@@ -16,6 +16,8 @@
 #[cfg(feature = "bits")]
 mod bits;
 mod composite;
+#[cfg(feature = "primitive-types")]
+mod primitive_types;
 mod variant;
 
 // Exposed so that the derive macro can lean on it.
@@ -853,5 +855,55 @@ mod test {
             (Bits::from_iter([true, false, true]),),
             ((BitVec::<u8, Lsb0>::from_iter([true, false, true]),),),
         );
+    }
+
+    #[cfg(feature = "primitive-types")]
+    #[test]
+    fn hxxx_types_roundtrip_ok() {
+        use ::primitive_types::{H128, H160, H256, H384, H512, H768};
+
+        // Check that Hxxx types roundtirp to themselves or to byte sequences
+        fn test_hxxx(bytes: impl IntoIterator<Item = u8> + Clone) {
+            let mut bytes: Vec<u8> = bytes.into_iter().collect();
+
+            while bytes.len() < 128 / 8 {
+                bytes.push(0)
+            }
+            value_roundtrips_to(H128::from_slice(&bytes), bytes.clone());
+            value_roundtrips_to(H128::from_slice(&bytes), H128::from_slice(&bytes));
+
+            while bytes.len() < 160 / 8 {
+                bytes.push(0)
+            }
+            value_roundtrips_to(H160::from_slice(&bytes), bytes.clone());
+            value_roundtrips_to(H160::from_slice(&bytes), H160::from_slice(&bytes));
+
+            while bytes.len() < 256 / 8 {
+                bytes.push(0)
+            }
+            value_roundtrips_to(H256::from_slice(&bytes), bytes.clone());
+            value_roundtrips_to(H256::from_slice(&bytes), H256::from_slice(&bytes));
+
+            while bytes.len() < 384 / 8 {
+                bytes.push(0)
+            }
+            value_roundtrips_to(H384::from_slice(&bytes), bytes.clone());
+            value_roundtrips_to(H384::from_slice(&bytes), H384::from_slice(&bytes));
+
+            while bytes.len() < 512 / 8 {
+                bytes.push(0)
+            }
+            value_roundtrips_to(H512::from_slice(&bytes), bytes.clone());
+            value_roundtrips_to(H512::from_slice(&bytes), H512::from_slice(&bytes));
+
+            while bytes.len() < 768 / 8 {
+                bytes.push(0)
+            }
+            value_roundtrips_to(H768::from_slice(&bytes), bytes.clone());
+            value_roundtrips_to(H768::from_slice(&bytes), H768::from_slice(&bytes));
+        }
+
+        test_hxxx([0u8]);
+        test_hxxx([1, 2, 3, 4]);
     }
 }
