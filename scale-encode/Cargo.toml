@@ -1,6 +1,6 @@
 [package]
 name = "scale-encode"
-version = "0.0.7"
+version = "0.0.8"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 
@@ -30,7 +30,7 @@ scale-info = { version = "2.3.0", features = ["bit-vec"] }
 thiserror = "1.0.37"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "full"] }
 scale-bits = { version = "0.3.0", default-features = false, features = ["scale-info"], optional = true }
-scale-encode-derive = { path = "../scale-encode-derive", version = "0.0.7", optional = true }
+scale-encode-derive = { path = "../scale-encode-derive", version = "0.0.8", optional = true }
 primitive-types = { version = "0.12.0", optional = true, default-features = false }
 
 [dev-dependencies]

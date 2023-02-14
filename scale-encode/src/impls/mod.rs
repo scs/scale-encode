@@ -409,6 +409,7 @@ impl_encode_like!(NonZeroI128 as i128 where |val| val.get());
 impl_encode_like!(Duration as (u64, u32) where |val| (val.as_secs(), val.subsec_nanos()));
 impl_encode_like!(Range<T> as (&T, &T) where |val| (&val.start, &val.end));
 impl_encode_like!(RangeInclusive<T> as (&T, &T) where |val| ((val.start()), (val.end())));
+impl_encode_like!(Compact<T> as &T where |val| &val.0);
 
 // Attempt to recurse into some type, returning the innermost type found that has an identical
 // SCALE encoded representation to the given type. For instance, `(T,)` encodes identically to
@@ -742,6 +743,13 @@ mod test {
         // and as a last5 ditch attempt we'll unwrap a single value in a sequence type and
         // try encoding to that.
         value_roundtrips_to(vec![1i128], (Wrapper { val: 1i128 },));
+    }
+
+    #[test]
+    fn compacts_roundtrip() {
+        encodes_like_codec(Compact(123u16));
+        encodes_like_codec(Compact(123u8));
+        encodes_like_codec(Compact(123u64));
     }
 
     #[test]
