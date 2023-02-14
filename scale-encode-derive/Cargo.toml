@@ -6,6 +6,9 @@ readme = "README.md"
 authors = ["Parity Technologies <admin@parity.io>"]
 license = "Apache-2.0"
 edition = "2021"
+repository = "https://github.com/paritytech/scale-encode"
+documentation = "https://docs.rs/scale-encode-derive"
+homepage = "https://www.parity.io/"
 
 [lib]
 proc-macro = true
