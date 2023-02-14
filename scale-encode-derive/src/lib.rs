@@ -115,7 +115,10 @@ fn generate_enum_impl(
                 __encode_as_type_out: &mut Vec<u8>
             ) -> Result<(), #path_to_scale_encode::Error> {
                 match self {
-                    #( #match_arms ),*
+                    #( #match_arms, )*
+                    // This will never be encountered, but in case the enum has no variants
+                    // the compiler will still want something to be spat out here:
+                    _ => unreachable!()
                 }
             }
         }
