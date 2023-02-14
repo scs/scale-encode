@@ -55,7 +55,7 @@ macro_rules! count_idents {
 
 // `Composite(((Option<&'static str>, T),..))` where `T: EncodeAsType` will get an impl of `EncodeAsType` via this macro:
 macro_rules! impl_encode_composite {
-    ($($name:ident: $t:ident),*) => {
+    ($($name:ident: $t:ident ,)*) => {
         impl < $($t),* > EncodeAsType for Composite<( $((Option<&'static str>, $t),)* )> where $($t: EncodeAsType),* {
             #[allow(unused_assignments)]
             #[allow(unused_mut)]
@@ -145,44 +145,6 @@ macro_rules! impl_encode_composite {
     }
 }
 
-#[rustfmt::skip]
-const _: () = {
-    impl_encode_composite!();
-    impl_encode_composite!(a: A);
-    impl_encode_composite!(a: A, b: B);
-    impl_encode_composite!(a: A, b: B, c: C);
-    impl_encode_composite!(a: A, b: B, c: C, d: D);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z, a1: A1);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z, a1: A1, b1: B1);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z, a1: A1, b1: B1, c1: C1);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z, a1: A1, b1: B1, c1: C1, d1: D1);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z, a1: A1, b1: B1, c1: C1, d1: D1, e1: E1);
-    impl_encode_composite!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z, a1: A1, b1: B1, c1: C1, d1: D1, e1: E1, f1: F1);
-    // ^ note: our derive macro delegates to this, so this is also the limit for hor many struct/variant fields will satisfy EncodeAsType before things break..
-};
-
 /// A helper trait to encode composite fields. This exists so that we can reuse the same logic for variant fields, too.
 /// It doesn't actually need publically exposing.
 pub(crate) trait EncodeFieldsAsType {
@@ -196,7 +158,7 @@ pub(crate) trait EncodeFieldsAsType {
 }
 
 macro_rules! impl_encode_composite_fields {
-    ($($name:ident: $t:ident),*) => {
+    ($($name:ident: $t:ident ,)*) => {
         impl < $($t),* > EncodeFieldsAsType for Composite<( $((Option<&'static str>, $t),)* )> where $($t: EncodeAsType),* {
             #[allow(unused_assignments)]
             #[allow(unused_mut)]
@@ -273,39 +235,22 @@ macro_rules! impl_encode_composite_fields {
     }
 }
 
+// Generate encodings for a load of fields (I've seen 40+ in types seen in metadata before).
+macro_rules! impl_encodes {
+    ($name:ident: $t:ident, $($rest:tt)*) => {
+        impl_encode_composite!($name: $t, $($rest)*);
+        impl_encode_composite_fields!($name: $t, $($rest)*);
+        impl_encodes!($($rest)*);
+    };
+    () => {
+        impl_encode_composite!();
+        impl_encode_composite_fields!();
+    }
+}
 #[rustfmt::skip]
-const _: () = {
-    impl_encode_composite_fields!();
-    impl_encode_composite_fields!(a: A);
-    impl_encode_composite_fields!(a: A, b: B);
-    impl_encode_composite_fields!(a: A, b: B, c: C);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z, a1: A1);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z, a1: A1, b1: B1);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z, a1: A1, b1: B1, c1: C1);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z, a1: A1, b1: B1, c1: C1, d1: D1);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z, a1: A1, b1: B1, c1: C1, d1: D1, e1: E1);
-    impl_encode_composite_fields!(a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, j: J, k: K, l: L, m: M, n: N, o: O, p: P, q: Q, r: R, s: S, t: T, u: U, v: V, w: W, x: X, y: Y, z: Z, a1: A1, b1: B1, c1: C1, d1: D1, e1: E1, f1: F1);
-};
+impl_encodes!(
+  a0: A0, b0: B0, c0: C0, d0: D0, e0: E0, f0: F0, g0: G0, h0: H0, i0: I0, j0: J0, k0: K0, l0: L0, m0: M0, n0: N0, o0: O0, p0: P0, q0: Q0, r0: R0, s0: S0, t0: T0, u0: U0, v0: V0, w0: W0, x0: X0, y0: Y0, z0: Z0,
+  a1: A1, b1: B1, c1: C1, d1: D1, e1: E1, f1: F1, g1: G1, h1: H1, i1: I1, j1: J1, k1: K1, l1: L1, m1: M1, n1: N1, o1: O1, p1: P1, q1: Q1, r1: R1, s1: S1, t1: T1, u1: U1, v1: V1, w1: W1, x1: X1, y1: Y1, z1: Z1,
+  a2: A2, b2: B2, c2: C2, d2: D2, e2: E2, f2: F2, g2: G2, h2: H2, i2: I2, j2: J2, k2: K2, l2: L2, m2: M2, n2: N2, o2: O2, p2: P2, q2: Q2, r2: R2, s2: S2, t2: T2, u2: U2, v2: V2, w2: W2, x2: X2, y2: Y2, z2: Z2,
+);
+// ^ note: our derive macro delegates to this, so this is also the limit for hor many struct/variant fields will satisfy EncodeAsType before things break..
