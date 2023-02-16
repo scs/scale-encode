@@ -54,12 +54,12 @@ use scale_info::{PortableRegistry, TypeDef};
 /// }
 /// ```
 #[doc(hidden)]
-pub struct Variant<Vals> {
-    pub name: &'static str,
+pub struct Variant<'a, Vals> {
+    pub name: &'a str,
     pub fields: super::composite::Composite<Vals>,
 }
 
-impl<'a, Vals> EncodeAsType for Variant<Vals>
+impl<'a, Vals> EncodeAsType for Variant<'a, Vals>
 where
     Vals: ExactSizeIterator<Item = (Option<&'a str>, &'a dyn EncodeAsType)> + Clone,
 {
