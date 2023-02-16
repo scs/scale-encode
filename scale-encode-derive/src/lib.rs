@@ -199,18 +199,12 @@ fn fields_to_matcher_and_composite(
             let tuple_body = fields.named.iter().map(|f| {
                 let field_name_str = f.ident.as_ref().unwrap().to_string();
                 let field_name = &f.ident;
-                quote!((Some(#field_name_str), #field_name))
+                quote!((Some(#field_name_str), #field_name as &dyn #path_to_scale_encode::EncodeAsType))
             });
-            // add a closing comma if one field to make sure that the thing we generate
-            // is still seen as a tuple and not just brackets around an item.
-            let closing_comma = if fields.named.len() == 1 {
-                quote!(,)
-            } else {
-                quote!()
-            };
+
             (
                 quote!({#( #match_body ),*}),
-                quote!(#path_to_scale_encode::utils::Composite((#( #tuple_body ),* #closing_comma))),
+                quote!(#path_to_scale_encode::utils::Composite([#( #tuple_body ),*].into_iter())),
             )
         }
         syn::Fields::Unnamed(fields) => {
@@ -223,22 +217,16 @@ fn fields_to_matcher_and_composite(
             let match_body = field_idents.iter().map(|i| quote!(#i));
             let tuple_body = field_idents
                 .iter()
-                .map(|i| quote!((None as Option<&'static str>, #i)));
-            // add a closing comma if one field to make sure that the thing we generate
-            // is still seen as a tuple and not just brackets around an item.
-            let closing_comma = if fields.unnamed.len() == 1 {
-                quote!(,)
-            } else {
-                quote!()
-            };
+                .map(|i| quote!((None as Option<&'static str>, #i as &dyn #path_to_scale_encode::EncodeAsType)));
+
             (
                 quote!((#( #match_body ),*)),
-                quote!(#path_to_scale_encode::utils::Composite((#( #tuple_body ),* #closing_comma))),
+                quote!(#path_to_scale_encode::utils::Composite([#( #tuple_body ),*].into_iter())),
             )
         }
         syn::Fields::Unit => (
             quote!(),
-            quote!(#path_to_scale_encode::utils::Composite(())),
+            quote!(#path_to_scale_encode::utils::Composite(([] as [(Option<&'static str>, &dyn #path_to_scale_encode::EncodeAsType);0]).into_iter())),
         ),
     }
 }

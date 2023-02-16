@@ -20,10 +20,9 @@ mod composite;
 mod primitive_types;
 mod variant;
 
-// Exposed so that the derive macro can lean on it.
-#[doc(hidden)]
+// Useful to help encode key-value types or custom variant types manually.
+// Primarily used in the derive macro.
 pub use composite::Composite;
-#[doc(hidden)]
 pub use variant::Variant;
 
 use crate::error::{Error, ErrorKind, Kind};
@@ -163,12 +162,12 @@ impl<T: EncodeAsType, E: EncodeAsType> EncodeAsType for Result<T, E> {
         match self {
             Ok(v) => Variant {
                 name: "Ok",
-                fields: Composite(((None, v),)),
+                fields: Composite([(None, v as &dyn EncodeAsType)].iter().copied()),
             }
             .encode_as_type_to(type_id, types, out),
             Err(e) => Variant {
                 name: "Err",
-                fields: Composite(((None, e),)),
+                fields: Composite([(None, e as &dyn EncodeAsType)].iter().copied()),
             }
             .encode_as_type_to(type_id, types, out),
         }
@@ -185,12 +184,12 @@ impl<T: EncodeAsType> EncodeAsType for Option<T> {
         match self {
             Some(v) => Variant {
                 name: "Some",
-                fields: Composite(((None, v),)),
+                fields: Composite([(None, v as &dyn EncodeAsType)].iter().copied()),
             }
             .encode_as_type_to(type_id, types, out),
             None => Variant {
                 name: "None",
-                fields: Composite(()),
+                fields: Composite([].iter().copied()),
             }
             .encode_as_type_to(type_id, types, out),
         }
@@ -323,11 +322,11 @@ macro_rules! impl_encode_tuple {
         impl < $($t),* > EncodeAsType for ($($t,)*) where $($t: EncodeAsType),* {
             fn encode_as_type_to(&self, type_id: u32, types: &PortableRegistry, out: &mut Vec<u8>) -> Result<(), Error> {
                 let ($($name,)*) = self;
-                Composite((
+                Composite([
                     $(
-                        (None as Option<&'static str>, $name)
+                        (None as Option<&'static str>, $name as &dyn EncodeAsType)
                     ,)*
-                )).encode_as_type_to(type_id, types, out)
+                ].iter().copied()).encode_as_type_to(type_id, types, out)
             }
         }
     }
@@ -369,12 +368,26 @@ macro_rules! impl_encode_seq_via_iterator {
         }
     }
 }
-impl_encode_seq_via_iterator!(BTreeMap[K, V]);
 impl_encode_seq_via_iterator!(BTreeSet[K]);
 impl_encode_seq_via_iterator!(LinkedList[V]);
 impl_encode_seq_via_iterator!(BinaryHeap[V]);
 impl_encode_seq_via_iterator!(VecDeque[V]);
 impl_encode_seq_via_iterator!(Vec[V]);
+
+impl<K: AsRef<str>, V: EncodeAsType> EncodeAsType for BTreeMap<K, V> {
+    fn encode_as_type_to(
+        &self,
+        type_id: u32,
+        types: &PortableRegistry,
+        out: &mut Vec<u8>,
+    ) -> Result<(), Error> {
+        Composite(
+            self.iter()
+                .map(|(k, v)| (Some(k.as_ref()), v as &dyn EncodeAsType)),
+        )
+        .encode_as_type_to(type_id, types, out)
+    }
+}
 
 // Generate EncodeAsType impls for simple types that can be easily transformed
 // into types we have impls for already.
@@ -661,16 +674,33 @@ mod test {
 
         let v = VecDeque::from([1u8, 2, 3]);
         value_roundtrips_to(v, vec![1u8, 2, 3]);
+    }
 
-        let v = BTreeMap::from([("a", 1u8), ("b", 2), ("c", 3)]);
+    #[test]
+    fn btreemap_can_encode_to_struct() {
+        #[derive(Debug, scale_info::TypeInfo, codec::Decode, PartialEq)]
+        struct Foo {
+            a: u8,
+            b: (bool,),
+            c: String,
+        }
+
+        let v = BTreeMap::from([
+            ("a", &1u8 as &dyn EncodeAsType),
+            ("c", &"hello" as &dyn EncodeAsType),
+            ("b", &true as &dyn EncodeAsType),
+        ]);
+
+        // BTreeMap can go to a key-val composite, or unnamed:
         value_roundtrips_to(
-            v,
-            vec![
-                ("a".to_string(), 1u8),
-                ("b".to_string(), 2),
-                ("c".to_string(), 3),
-            ],
+            v.clone(),
+            Foo {
+                a: 1,
+                b: (true,),
+                c: "hello".to_string(),
+            },
         );
+        value_roundtrips_to(v, (1, true, "hello".to_string()));
     }
 
     #[test]
@@ -762,11 +792,12 @@ mod test {
         }
 
         // note: fields do not need to be in order when named:
-        let source = Composite((
-            (Some("hello"), "world".to_string()),
-            (Some("bar"), 12345u128),
-            (Some("wibble"), true),
-        ));
+        let vals = [
+            (Some("hello"), &("world".to_string()) as &dyn EncodeAsType),
+            (Some("bar"), &12345u128 as &dyn EncodeAsType),
+            (Some("wibble"), &true as &dyn EncodeAsType),
+        ];
+        let source = Composite(vals.iter().copied());
 
         let target = Foo {
             bar: 12345,
@@ -783,12 +814,19 @@ mod test {
         struct Foo(u32, bool, String);
 
         // note: unnamed target so fields need to be in order (can be named or not)
-        let source = Composite((
-            (Some("bar"), 12345u128),
-            (Some("wibble"), true),
-            (Some("hello"), "world".to_string()),
-        ));
-        let source2 = Composite(((None, 12345u128), (None, true), (None, "world".to_string())));
+        let named_vals = [
+            (Some("bar"), &12345u128 as &dyn EncodeAsType),
+            (Some("wibble"), &true as &dyn EncodeAsType),
+            (Some("hello"), &"world".to_string() as &dyn EncodeAsType),
+        ];
+        let source = Composite(named_vals.iter().copied());
+
+        let unnamed_vals = [
+            (None, &12345u128 as &dyn EncodeAsType),
+            (None, &true as &dyn EncodeAsType),
+            (None, &"world".to_string() as &dyn EncodeAsType),
+        ];
+        let source2 = Composite(unnamed_vals.iter().copied());
 
         let target = Foo(12345, true, "world".to_string());
 
@@ -806,12 +844,13 @@ mod test {
         }
 
         // note: fields do not need to be in order when named:
-        let source = Composite((
-            (Some("hello"), "world".to_string()),
-            (Some("bar"), 12345u128),
-            // Note: typo in name below, so it won't line up.
-            (Some("wibbles"), true),
-        ));
+        let vals = [
+            (Some("hello"), &"world".to_string() as &dyn EncodeAsType),
+            (Some("bar"), &12345u128 as &dyn EncodeAsType),
+            // wrong name:
+            (Some("wibbles"), &true as &dyn EncodeAsType),
+        ];
+        let source = Composite(vals.iter().copied());
 
         encode_type::<_, Foo>(source).unwrap_err();
     }

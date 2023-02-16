@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::composite::EncodeFieldsAsType;
 use crate::{
     error::{Error, ErrorKind, Kind},
     EncodeAsType,
@@ -39,30 +38,30 @@ use scale_info::{PortableRegistry, TypeDef};
 ///         match self {
 ///             MyType::SomeField(b) => Variant {
 ///                 name: "SomeField",
-///                 fields: Composite((
-///                     (None, b),
-///                 ))
+///                 fields: Composite([
+///                     (None, b as &dyn EncodeAsType),
+///                 ].into_iter())
 ///             }.encode_as_type_to(type_id, types, out),
 ///             MyType::OtherField { foo, bar } => Variant {
 ///                 name: "OtherField",
-///                 fields: Composite((
-///                     (Some("foo"), foo),
-///                     (Some("bar"), bar)
-///                 ))
+///                 fields: Composite([
+///                     (Some("foo"), foo as &dyn EncodeAsType),
+///                     (Some("bar"), bar as &dyn EncodeAsType)
+///                 ].into_iter())
 ///             }.encode_as_type_to(type_id, types, out)
 ///         }
 ///     }
 /// }
 /// ```
 #[doc(hidden)]
-pub struct Variant<Tuples> {
+pub struct Variant<Vals> {
     pub name: &'static str,
-    pub fields: super::composite::Composite<Tuples>,
+    pub fields: super::composite::Composite<Vals>,
 }
 
-impl<Tuples> EncodeAsType for Variant<Tuples>
+impl<'a, Vals> EncodeAsType for Variant<Vals>
 where
-    super::composite::Composite<Tuples>: EncodeFieldsAsType,
+    Vals: ExactSizeIterator<Item = (Option<&'a str>, &'a dyn EncodeAsType)> + Clone,
 {
     fn encode_as_type_to(
         &self,
