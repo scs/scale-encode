@@ -58,6 +58,19 @@ where
         out: &mut Vec<u8>,
     ) -> Result<(), Error> {
         let mut vals_iter = self.0.clone();
+        let vals_iter_len = vals_iter.len();
+
+        // If the source or target type are tuples or composites with one field, "unwrap"
+        // that field and just try encoding the inner content.
+        let type_id = super::find_single_entry_with_same_repr(type_id, types);
+        if vals_iter_len == 1 {
+            return vals_iter
+                .next()
+                .unwrap()
+                .1
+                .encode_as_type_to(type_id, types, out);
+        }
+
         let ty = types
             .resolve(type_id)
             .ok_or_else(|| Error::new(ErrorKind::TypeNotFound(type_id)))?;
@@ -66,9 +79,9 @@ where
             TypeDef::Tuple(tuple) => {
                 let fields = tuple.fields();
 
-                if vals_iter.len() != fields.len() {
+                if vals_iter_len != fields.len() {
                     return Err(Error::new(ErrorKind::WrongLength {
-                        actual_len: vals_iter.len(),
+                        actual_len: vals_iter_len,
                         expected_len: fields.len(),
                         expected: type_id,
                     }));
@@ -85,12 +98,24 @@ where
                 }
                 Ok(())
             }
+            TypeDef::Composite(composite) => {
+                let fields = composite.fields();
+
+                if vals_iter_len != fields.len() {
+                    return Err(Error::new(ErrorKind::WrongLength {
+                        actual_len: vals_iter_len,
+                        expected_len: fields.len(),
+                        expected: type_id,
+                    }));
+                }
+                self.encode_fields_to(fields, type_id, types, out)
+            }
             TypeDef::Array(array) => {
                 let array_len = array.len() as usize;
 
-                if vals_iter.len() != array_len {
+                if vals_iter_len != array_len {
                     return Err(Error::new(ErrorKind::WrongLength {
-                        actual_len: vals_iter.len(),
+                        actual_len: vals_iter_len,
                         expected_len: array_len,
                         expected: type_id,
                     }));
@@ -109,7 +134,7 @@ where
             }
             TypeDef::Sequence(seq) => {
                 // sequences start with compact encoded length:
-                Compact(vals_iter.len() as u32).encode_to(out);
+                Compact(vals_iter_len as u32).encode_to(out);
                 for (idx, (name, val)) in vals_iter.enumerate() {
                     let loc = if let Some(name) = name {
                         Location::field(name.to_string())
@@ -120,18 +145,6 @@ where
                         .map_err(|e| e.at(loc))?;
                 }
                 Ok(())
-            }
-            TypeDef::Composite(composite) => {
-                if vals_iter.len() != composite.fields().len() {
-                    return Err(Error::new(ErrorKind::WrongLength {
-                        actual_len: vals_iter.len(),
-                        expected_len: composite.fields().len(),
-                        expected: type_id,
-                    }));
-                }
-
-                let fields = composite.fields();
-                self.encode_fields_to(fields, type_id, types, out)
             }
             _ => {
                 // Is there exactly one item to iterate over?

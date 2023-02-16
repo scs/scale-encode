@@ -438,9 +438,6 @@ fn find_single_entry_with_same_repr(type_id: u32, types: &PortableRegistry) -> u
         TypeDef::Composite(composite) if composite.fields().len() == 1 => {
             find_single_entry_with_same_repr(composite.fields()[0].ty().id(), types)
         }
-        TypeDef::Array(arr) if arr.len() == 1 => {
-            find_single_entry_with_same_repr(arr.type_param().id(), types)
-        }
         _ => type_id,
     }
 }
