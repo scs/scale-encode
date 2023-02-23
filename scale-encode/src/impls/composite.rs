@@ -15,7 +15,7 @@
 
 use crate::{
     error::{Error, ErrorKind, Kind, Location},
-    EncodeAsFields, EncodeAsType, PortableField,
+    EncodeAsFields, EncodeAsType,
 };
 use codec::{Compact, Encode};
 use scale_info::{PortableRegistry, TypeDef};
@@ -76,12 +76,8 @@ where
 
         match ty.type_def() {
             TypeDef::Tuple(tuple) => {
-                let fields: Vec<PortableField> = tuple
-                    .fields()
-                    .iter()
-                    .map(|f| PortableField::new(None, *f, None, Vec::new()))
-                    .collect();
-                self.encode_as_fields_to(fields.as_slice(), types, out)
+                let fields = tuple.fields();
+                self.encode_as_field_ids_to(fields, types, out)
             }
             TypeDef::Composite(composite) => {
                 let fields = composite.fields();

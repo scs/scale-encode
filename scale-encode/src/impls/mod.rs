@@ -587,11 +587,16 @@ mod test {
 
         let (type_id, types) = make_type::<T>();
         let type_def = types.resolve(type_id).unwrap().type_def();
-        let scale_info::TypeDef::Composite(c) = type_def else {
-            panic!("Expected composite type def");
-        };
 
-        let encoded_as_fields = value.encode_as_fields(c.fields(), &types).unwrap();
+        let encoded_as_fields = match type_def {
+            scale_info::TypeDef::Composite(c) => {
+                value.encode_as_fields(c.fields(), &types).unwrap()
+            }
+            scale_info::TypeDef::Tuple(t) => value.encode_as_field_ids(t.fields(), &types).unwrap(),
+            _ => {
+                panic!("Expected composite or tuple type def");
+            }
+        };
 
         assert_eq!(
             encoded_other, encoded_as_fields,
@@ -1058,6 +1063,15 @@ mod test {
                 more_random: 1,
             },
             FooUnnamed("hello".to_string(), (123,), true, 1),
+        );
+        assert_encodes_fields_like_type(
+            FooBigger {
+                random: "hello".to_string(),
+                some_field: 123,
+                another: true,
+                more_random: 1,
+            },
+            ("hello".to_string(), (123u8,), true, (1u64,)),
         );
     }
 }
