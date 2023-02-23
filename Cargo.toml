@@ -3,3 +3,14 @@ members = [
     "scale-encode",
     "scale-encode-derive"
 ]
+
+[workspace.package]
+version = "0.0.16"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/paritytech/scale-encode"
+homepage = "https://www.parity.io/"
+keywords = ["parity", "scale", "encoding"]
+include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE"]
