@@ -15,7 +15,7 @@
 
 use crate::{
     error::{Error, ErrorKind, Kind},
-    EncodeAsType,
+    EncodeAsFields, EncodeAsType,
 };
 use codec::Encode;
 use scale_info::{PortableRegistry, TypeDef};
@@ -25,8 +25,7 @@ use scale_info::{PortableRegistry, TypeDef};
 /// macros to do just that.
 ///
 /// ```rust
-/// use scale_encode::utils::{ Composite, Variant, PortableRegistry };
-/// use scale_encode::{ Error, EncodeAsType };
+/// use scale_encode::{ Error, EncodeAsType, Composite, Variant, PortableRegistry };
 ///
 /// enum MyType {
 ///    SomeField(bool),
@@ -81,8 +80,7 @@ where
                     return Err(Error::new(ErrorKind::CannotFindVariant { name: self.name.to_string(), expected: type_id }));
                 };
                 v.index().encode_to(out);
-                self.fields
-                    .encode_fields_to(v.fields(), type_id, types, out)
+                self.fields.encode_as_fields_to(v.fields(), types, out)
             }
             _ => Err(Error::new(ErrorKind::WrongShape {
                 actual: Kind::Str,

@@ -15,10 +15,10 @@
 
 use crate::{
     error::{Error, ErrorKind, Kind, Location},
-    EncodeAsType,
+    EncodeAsFields, EncodeAsType, PortableField,
 };
 use codec::{Compact, Encode};
-use scale_info::{form::PortableForm, Field, PortableRegistry, TypeDef};
+use scale_info::{PortableRegistry, TypeDef};
 use std::collections::HashMap;
 
 /// This type represents named or unnamed composite values, and can be used
@@ -26,8 +26,7 @@ use std::collections::HashMap;
 /// macros to do just that.
 ///
 /// ```rust
-/// use scale_encode::utils::{ Composite, PortableRegistry };
-/// use scale_encode::{ Error, EncodeAsType };
+/// use scale_encode::{ Error, EncodeAsType, Composite, PortableRegistry };
 ///
 /// struct MyType {
 ///    foo: bool,
@@ -77,38 +76,16 @@ where
 
         match ty.type_def() {
             TypeDef::Tuple(tuple) => {
-                let fields = tuple.fields();
-
-                if vals_iter_len != fields.len() {
-                    return Err(Error::new(ErrorKind::WrongLength {
-                        actual_len: vals_iter_len,
-                        expected_len: fields.len(),
-                        expected: type_id,
-                    }));
-                }
-
-                for (idx, (field, (name, val))) in fields.iter().zip(vals_iter).enumerate() {
-                    let loc = if let Some(name) = name {
-                        Location::field(name.to_string())
-                    } else {
-                        Location::idx(idx)
-                    };
-                    val.encode_as_type_to(field.id(), types, out)
-                        .map_err(|e| e.at(loc))?;
-                }
-                Ok(())
+                let fields: Vec<PortableField> = tuple
+                    .fields()
+                    .iter()
+                    .map(|f| PortableField::new(None, *f, None, Vec::new()))
+                    .collect();
+                self.encode_as_fields_to(fields.as_slice(), types, out)
             }
             TypeDef::Composite(composite) => {
                 let fields = composite.fields();
-
-                if vals_iter_len != fields.len() {
-                    return Err(Error::new(ErrorKind::WrongLength {
-                        actual_len: vals_iter_len,
-                        expected_len: fields.len(),
-                        expected: type_id,
-                    }));
-                }
-                self.encode_fields_to(fields, type_id, types, out)
+                self.encode_as_fields_to(fields, types, out)
             }
             TypeDef::Array(array) => {
                 let array_len = array.len() as usize;
@@ -117,7 +94,6 @@ where
                     return Err(Error::new(ErrorKind::WrongLength {
                         actual_len: vals_iter_len,
                         expected_len: array_len,
-                        expected: type_id,
                     }));
                 }
 
@@ -160,14 +136,13 @@ where
     }
 }
 
-impl<'a, Vals> Composite<Vals>
+impl<'a, Vals> EncodeAsFields for Composite<Vals>
 where
     Vals: ExactSizeIterator<Item = (Option<&'a str>, &'a dyn EncodeAsType)> + Clone,
 {
-    pub(crate) fn encode_fields_to(
+    fn encode_as_fields_to(
         &self,
-        fields: &[Field<PortableForm>],
-        type_id: u32,
+        fields: &[crate::PortableField],
         types: &PortableRegistry,
         out: &mut Vec<u8>,
     ) -> Result<(), Error> {
@@ -211,7 +186,6 @@ where
                 return Err(Error::new(ErrorKind::WrongLength {
                     actual_len: vals_iter.len(),
                     expected_len: fields.len(),
-                    expected: type_id,
                 }));
             }
 

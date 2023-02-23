@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use scale_encode::EncodeAsType;
+use scale_encode::{ EncodeAsType, EncodeAsFields };
 
 // Single field named struct
 #[derive(EncodeAsType)]
@@ -41,12 +41,12 @@ struct Foo4 {
     types: u64
 }
 
-fn can_encode_as_type<T: EncodeAsType>() {}
+fn can_encode_as_type_and_fields<T: EncodeAsType + EncodeAsFields>() {}
 
 fn main() {
     // assert that the trait is implemented:
-    can_encode_as_type::<Foo>();
-    can_encode_as_type::<Foo2>();
-    can_encode_as_type::<Foo3>();
-    can_encode_as_type::<Foo4>();
+    can_encode_as_type_and_fields::<Foo>();
+    can_encode_as_type_and_fields::<Foo2>();
+    can_encode_as_type_and_fields::<Foo3>();
+    can_encode_as_type_and_fields::<Foo4>();
 }

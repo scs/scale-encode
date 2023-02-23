@@ -102,14 +102,12 @@ pub enum ErrorKind {
         expected: u32,
     },
     /// The types line up, but the expected length of the target type is different from the length of the input value.
-    #[error("Cannot encode to ID {expected}; expected length {expected_len} but got length {actual_len}")]
+    #[error("Cannot encode to type; expected length {expected_len} but got length {actual_len}")]
     WrongLength {
         /// Length we have
         actual_len: usize,
         /// Length expected for type.
         expected_len: usize,
-        /// ID of the expected type.
-        expected: u32,
     },
     /// We cannot encode the number given into the target type; it's out of range.
     #[error("Number {value} is out of range for target type {expected}")]

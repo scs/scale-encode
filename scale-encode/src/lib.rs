@@ -24,13 +24,13 @@ mod impls;
 pub mod error;
 
 pub use error::Error;
-use scale_info::PortableRegistry;
 
-/// Some utility types that are useful in order to help implement `EncodeAsType`.
-pub mod utils {
-    pub use crate::impls::{Composite, Variant};
-    pub use scale_info::PortableRegistry;
-}
+// Useful types to help implement EncodeAsType/Fields with:
+pub use crate::impls::{Composite, Variant};
+pub use scale_info::PortableRegistry;
+
+/// A description of a single field in a tuple or struct type.
+pub type PortableField = scale_info::Field<scale_info::form::PortableForm>;
 
 #[cfg(feature = "derive")]
 pub use scale_encode_derive::EncodeAsType;
@@ -54,6 +54,31 @@ pub trait EncodeAsType {
     fn encode_as_type_to(
         &self,
         type_id: u32,
+        types: &PortableRegistry,
+        out: &mut Vec<u8>,
+    ) -> Result<(), Error>;
+}
+
+/// This is similar to [`EncodeAsType`], except that it's can be implemented on types that can be encoded
+/// to bytes given a list of fields instead of a single type ID. This is generally implemented just for
+/// tuple and struct types, and is automatically implemented via the [`macro@EncodeAsType`] macro.
+pub trait EncodeAsFields {
+    /// This is a helper function which internally calls [`EncodeAsFields::encode_as_fields_to`]. Prefer to
+    /// implement that instead.
+    fn encode_as_fields(
+        &self,
+        fields: &[PortableField],
+        types: &PortableRegistry,
+    ) -> Result<Vec<u8>, Error> {
+        let mut out = Vec::new();
+        self.encode_as_fields_to(fields, types, &mut out)?;
+        Ok(out)
+    }
+
+    /// Given some fields describing the shape of a type, attempt to encode to that shape.
+    fn encode_as_fields_to(
+        &self,
+        fields: &[PortableField],
         types: &PortableRegistry,
         out: &mut Vec<u8>,
     ) -> Result<(), Error>;

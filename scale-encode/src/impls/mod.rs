@@ -26,7 +26,7 @@ pub use composite::Composite;
 pub use variant::Variant;
 
 use crate::error::{Error, ErrorKind, Kind};
-use crate::EncodeAsType;
+use crate::{EncodeAsFields, EncodeAsType, PortableField};
 use codec::{Compact, Encode};
 use core::num::{
     NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
@@ -388,6 +388,20 @@ impl<K: AsRef<str>, V: EncodeAsType> EncodeAsType for BTreeMap<K, V> {
         .encode_as_type_to(type_id, types, out)
     }
 }
+impl<K: AsRef<str>, V: EncodeAsType> EncodeAsFields for BTreeMap<K, V> {
+    fn encode_as_fields_to(
+        &self,
+        fields: &[PortableField],
+        types: &PortableRegistry,
+        out: &mut Vec<u8>,
+    ) -> Result<(), Error> {
+        Composite(
+            self.iter()
+                .map(|(k, v)| (Some(k.as_ref()), v as &dyn EncodeAsType)),
+        )
+        .encode_as_fields_to(fields, types, out)
+    }
+}
 
 // Generate EncodeAsType impls for simple types that can be easily transformed
 // into types we have impls for already.
@@ -470,7 +484,6 @@ where
                 Err(Error::new(ErrorKind::WrongLength {
                     actual_len: len,
                     expected_len: arr.len() as usize,
-                    expected: type_id,
                 }))
             }
         }
@@ -514,6 +527,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::EncodeAsFields;
     use codec::Decode;
     use scale_info::TypeInfo;
     use std::fmt::Debug;
@@ -534,7 +548,10 @@ mod test {
         Ok(bytes)
     }
 
-    fn value_roundtrips_to<V: EncodeAsType, T: PartialEq + Debug + Decode + TypeInfo + 'static>(
+    fn assert_value_roundtrips_to<
+        V: EncodeAsType,
+        T: PartialEq + Debug + Decode + TypeInfo + 'static,
+    >(
         value: V,
         target: T,
     ) {
@@ -549,7 +566,9 @@ mod test {
         );
     }
 
-    fn encodes_like_codec<V: Encode + EncodeAsType + PartialEq + Debug + TypeInfo + 'static>(
+    fn assert_encodes_like_codec<
+        V: Encode + EncodeAsType + PartialEq + Debug + TypeInfo + 'static,
+    >(
         value: V,
     ) {
         let encode_bytes = value.encode();
@@ -560,24 +579,44 @@ mod test {
         );
     }
 
+    fn assert_encodes_fields_like_type<V: EncodeAsFields, T: TypeInfo + Encode + 'static>(
+        value: V,
+        other: T,
+    ) {
+        let encoded_other = other.encode();
+
+        let (type_id, types) = make_type::<T>();
+        let type_def = types.resolve(type_id).unwrap().type_def();
+        let scale_info::TypeDef::Composite(c) = type_def else {
+            panic!("Expected composite type def");
+        };
+
+        let encoded_as_fields = value.encode_as_fields(c.fields(), &types).unwrap();
+
+        assert_eq!(
+            encoded_other, encoded_as_fields,
+            "compare encode_with_fields with other encode"
+        );
+    }
+
     #[test]
     fn numeric_roundtrips_encode_ok() {
         macro_rules! int_value_roundtrip {
             ($($val:expr; $ty:ty),+) => {$(
-                value_roundtrips_to($val, $val as i8);
-                value_roundtrips_to($val, $val as i16);
-                value_roundtrips_to($val, $val as i32);
-                value_roundtrips_to($val, $val as i64);
-                value_roundtrips_to($val, $val as i128);
+                assert_value_roundtrips_to($val, $val as i8);
+                assert_value_roundtrips_to($val, $val as i16);
+                assert_value_roundtrips_to($val, $val as i32);
+                assert_value_roundtrips_to($val, $val as i64);
+                assert_value_roundtrips_to($val, $val as i128);
             )+}
         }
         macro_rules! uint_value_roundtrip {
             ($($val:expr; $ty:ty),+) => {$(
-                value_roundtrips_to($val, $val as u8);
-                value_roundtrips_to($val, $val as u16);
-                value_roundtrips_to($val, $val as u32);
-                value_roundtrips_to($val, $val as u64);
-                value_roundtrips_to($val, $val as u128);
+                assert_value_roundtrips_to($val, $val as u8);
+                assert_value_roundtrips_to($val, $val as u16);
+                assert_value_roundtrips_to($val, $val as u32);
+                assert_value_roundtrips_to($val, $val as u64);
+                assert_value_roundtrips_to($val, $val as u128);
             )+}
         }
         macro_rules! int_value_roundtrip_types {
@@ -628,29 +667,29 @@ mod test {
 
     #[test]
     fn basic_types_encode_like_scale_codec() {
-        encodes_like_codec(true);
-        encodes_like_codec(false);
-        encodes_like_codec("hi");
-        encodes_like_codec("hi".to_string());
-        encodes_like_codec(Box::new("hi"));
-        encodes_like_codec(-1234);
-        encodes_like_codec(100_000_000_000_000u128);
-        encodes_like_codec(());
-        encodes_like_codec(std::marker::PhantomData::<()>);
-        encodes_like_codec([1, 2, 3, 4, 5]);
-        encodes_like_codec([1u8, 2, 3, 4, 5]);
-        encodes_like_codec(vec![1, 2, 3, 4, 5]);
-        encodes_like_codec([1, 2, 3, 4, 5]);
-        encodes_like_codec(Some(1234u32));
-        encodes_like_codec(None as Option<bool>);
-        encodes_like_codec(Ok::<_, &str>("hello"));
-        encodes_like_codec(Err::<u32, _>("aah"));
-        encodes_like_codec(0..100);
-        encodes_like_codec(0..=100);
+        assert_encodes_like_codec(true);
+        assert_encodes_like_codec(false);
+        assert_encodes_like_codec("hi");
+        assert_encodes_like_codec("hi".to_string());
+        assert_encodes_like_codec(Box::new("hi"));
+        assert_encodes_like_codec(-1234);
+        assert_encodes_like_codec(100_000_000_000_000u128);
+        assert_encodes_like_codec(());
+        assert_encodes_like_codec(std::marker::PhantomData::<()>);
+        assert_encodes_like_codec([1, 2, 3, 4, 5]);
+        assert_encodes_like_codec([1u8, 2, 3, 4, 5]);
+        assert_encodes_like_codec(vec![1, 2, 3, 4, 5]);
+        assert_encodes_like_codec([1, 2, 3, 4, 5]);
+        assert_encodes_like_codec(Some(1234u32));
+        assert_encodes_like_codec(None as Option<bool>);
+        assert_encodes_like_codec(Ok::<_, &str>("hello"));
+        assert_encodes_like_codec(Err::<u32, _>("aah"));
+        assert_encodes_like_codec(0..100);
+        assert_encodes_like_codec(0..=100);
 
         // These don't impl TypeInfo so we have to provide the target type to encode to & compare with:
-        value_roundtrips_to(Arc::new("hi"), "hi".to_string());
-        value_roundtrips_to(Rc::new("hi"), "hi".to_string());
+        assert_value_roundtrips_to(Arc::new("hi"), "hi".to_string());
+        assert_value_roundtrips_to(Rc::new("hi"), "hi".to_string());
         // encodes_like_codec(std::time::Duration::from_millis(123456));
     }
 
@@ -660,17 +699,17 @@ mod test {
         // encode like any sequence, prefixed with length.
 
         let v = LinkedList::from([1u8, 2, 3]);
-        value_roundtrips_to(v, vec![1u8, 2, 3]);
+        assert_value_roundtrips_to(v, vec![1u8, 2, 3]);
 
         // (it's a max heap, so values ordered max first.)
         let v = BinaryHeap::from([2, 3, 1]);
-        value_roundtrips_to(v, vec![3u8, 2, 1]);
+        assert_value_roundtrips_to(v, vec![3u8, 2, 1]);
 
         let v = BTreeSet::from([1u8, 2, 3]);
-        value_roundtrips_to(v, vec![1u8, 2, 3]);
+        assert_value_roundtrips_to(v, vec![1u8, 2, 3]);
 
         let v = VecDeque::from([1u8, 2, 3]);
-        value_roundtrips_to(v, vec![1u8, 2, 3]);
+        assert_value_roundtrips_to(v, vec![1u8, 2, 3]);
     }
 
     #[test]
@@ -689,7 +728,7 @@ mod test {
         ]);
 
         // BTreeMap can go to a key-val composite, or unnamed:
-        value_roundtrips_to(
+        assert_value_roundtrips_to(
             v.clone(),
             Foo {
                 a: 1,
@@ -697,18 +736,18 @@ mod test {
                 c: "hello".to_string(),
             },
         );
-        value_roundtrips_to(v, (1, true, "hello".to_string()));
+        assert_value_roundtrips_to(v, (1, true, "hello".to_string()));
     }
 
     #[test]
     fn mixed_tuples_roundtrip_ok() {
-        encodes_like_codec(());
-        encodes_like_codec((12345,));
-        encodes_like_codec((123u8, true));
-        encodes_like_codec((123u8, true, "hello"));
+        assert_encodes_like_codec(());
+        assert_encodes_like_codec((12345,));
+        assert_encodes_like_codec((123u8, true));
+        assert_encodes_like_codec((123u8, true, "hello"));
         // Encode isn't implemented for `char` (but we treat it as a u32):
-        encodes_like_codec((123u8, true, "hello".to_string(), 'a' as u32));
-        encodes_like_codec((
+        assert_encodes_like_codec((123u8, true, "hello".to_string(), 'a' as u32));
+        assert_encodes_like_codec((
             123u8,
             true,
             "hello".to_string(),
@@ -720,14 +759,14 @@ mod test {
     #[test]
     fn sequences_roundtrip_into_eachother() {
         // Tuples can turn to sequences or arrays:
-        value_roundtrips_to((1u8, 2u8, 3u8), vec![1u8, 2u8, 3u8]);
-        value_roundtrips_to((1u8, 2u8, 3u8), [1u8, 2u8, 3u8]);
+        assert_value_roundtrips_to((1u8, 2u8, 3u8), vec![1u8, 2u8, 3u8]);
+        assert_value_roundtrips_to((1u8, 2u8, 3u8), [1u8, 2u8, 3u8]);
 
         // Even when inner types differ but remain compatible on either side.
-        value_roundtrips_to((1u8, 2u8, 3u8), vec![1u128, 2u128, 3u128]);
-        value_roundtrips_to((1u8, 2u8, 3u8), vec![(1u128,), (2u128,), (3u128,)]);
-        value_roundtrips_to(((1u8,), (2u8,), 3u8), vec![1u128, 2u128, 3u128]);
-        value_roundtrips_to((([[1u8]],), (2u8,), 3u8), vec![1u128, 2u128, 3u128]);
+        assert_value_roundtrips_to((1u8, 2u8, 3u8), vec![1u128, 2u128, 3u128]);
+        assert_value_roundtrips_to((1u8, 2u8, 3u8), vec![(1u128,), (2u128,), (3u128,)]);
+        assert_value_roundtrips_to(((1u8,), (2u8,), 3u8), vec![1u128, 2u128, 3u128]);
+        assert_value_roundtrips_to((([[1u8]],), (2u8,), 3u8), vec![1u128, 2u128, 3u128]);
 
         // tuples can also encode to structs of same lengths (with inner type compat):
         #[derive(Debug, scale_info::TypeInfo, codec::Decode, PartialEq)]
@@ -736,7 +775,7 @@ mod test {
             b: u64,
             c: u128,
         }
-        value_roundtrips_to(
+        assert_value_roundtrips_to(
             (1u8, 2u8, 3u8),
             Foo {
                 a: (1,),
@@ -753,30 +792,30 @@ mod test {
             val: T,
         }
 
-        value_roundtrips_to(true, ([true],));
-        value_roundtrips_to(1234u16, ([1234u16],));
-        value_roundtrips_to(1234u16, Wrapper { val: 1234u16 });
-        value_roundtrips_to("hi", (["hi".to_string()],));
-        value_roundtrips_to(
+        assert_value_roundtrips_to(true, (true,));
+        assert_value_roundtrips_to(1234u16, (1234u16,));
+        assert_value_roundtrips_to(1234u16, Wrapper { val: 1234u16 });
+        assert_value_roundtrips_to("hi", (("hi".to_string(),),));
+        assert_value_roundtrips_to(
             "hi",
-            ([Wrapper {
+            (Wrapper {
                 val: "hi".to_string(),
-            }],),
+            },),
         );
 
         // Sequence types will try to unwrap composite/tuple things in the target type to
         // find a sequenceish thing to encode to.
-        value_roundtrips_to(vec![1i128], (Wrapper { val: vec![1i128] },));
+        assert_value_roundtrips_to(vec![1i128], (Wrapper { val: vec![1i128] },));
         // and as a last5 ditch attempt we'll unwrap a single value in a sequence type and
         // try encoding to that.
-        value_roundtrips_to(vec![1i128], (Wrapper { val: 1i128 },));
+        assert_value_roundtrips_to(vec![1i128], (Wrapper { val: 1i128 },));
     }
 
     #[test]
     fn compacts_roundtrip() {
-        encodes_like_codec(Compact(123u16));
-        encodes_like_codec(Compact(123u8));
-        encodes_like_codec(Compact(123u64));
+        assert_encodes_like_codec(Compact(123u16));
+        assert_encodes_like_codec(Compact(123u8));
+        assert_encodes_like_codec(Compact(123u64));
     }
 
     #[test]
@@ -802,7 +841,7 @@ mod test {
             hello: "world".to_string(),
         };
 
-        value_roundtrips_to(source, target);
+        assert_value_roundtrips_to(source, target);
     }
 
     #[test]
@@ -827,8 +866,8 @@ mod test {
 
         let target = Foo(12345, true, "world".to_string());
 
-        value_roundtrips_to(source, target.clone());
-        value_roundtrips_to(source2, target);
+        assert_value_roundtrips_to(source, target.clone());
+        assert_value_roundtrips_to(source2, target);
     }
 
     #[test]
@@ -865,21 +904,21 @@ mod test {
             let source = Bits::from_iter(bits.clone());
 
             let target = BitVec::<u8, Lsb0>::from_iter(bits.clone());
-            value_roundtrips_to(source.clone(), target);
+            assert_value_roundtrips_to(source.clone(), target);
             let target = BitVec::<u16, Lsb0>::from_iter(bits.clone());
-            value_roundtrips_to(source.clone(), target);
+            assert_value_roundtrips_to(source.clone(), target);
             let target = BitVec::<u32, Lsb0>::from_iter(bits.clone());
-            value_roundtrips_to(source.clone(), target);
+            assert_value_roundtrips_to(source.clone(), target);
             let target = BitVec::<u64, Lsb0>::from_iter(bits.clone());
-            value_roundtrips_to(source.clone(), target);
+            assert_value_roundtrips_to(source.clone(), target);
             let target = BitVec::<u8, Msb0>::from_iter(bits.clone());
-            value_roundtrips_to(source.clone(), target);
+            assert_value_roundtrips_to(source.clone(), target);
             let target = BitVec::<u16, Msb0>::from_iter(bits.clone());
-            value_roundtrips_to(source.clone(), target);
+            assert_value_roundtrips_to(source.clone(), target);
             let target = BitVec::<u32, Msb0>::from_iter(bits.clone());
-            value_roundtrips_to(source.clone(), target);
+            assert_value_roundtrips_to(source.clone(), target);
             let target = BitVec::<u64, Msb0>::from_iter(bits);
-            value_roundtrips_to(source, target);
+            assert_value_roundtrips_to(source, target);
         }
 
         test_bits([]);
@@ -891,11 +930,11 @@ mod test {
         ]);
 
         // Wrapping the input or output bitvecs is fine; it'll figure it out:
-        value_roundtrips_to(
+        assert_value_roundtrips_to(
             Bits::from_iter([true, false, true]),
             ((BitVec::<u8, Lsb0>::from_iter([true, false, true]),),),
         );
-        value_roundtrips_to(
+        assert_value_roundtrips_to(
             (Bits::from_iter([true, false, true]),),
             ((BitVec::<u8, Lsb0>::from_iter([true, false, true]),),),
         );
@@ -913,41 +952,112 @@ mod test {
             while bytes.len() < 128 / 8 {
                 bytes.push(0)
             }
-            value_roundtrips_to(H128::from_slice(&bytes), bytes.clone());
-            value_roundtrips_to(H128::from_slice(&bytes), H128::from_slice(&bytes));
+            assert_value_roundtrips_to(H128::from_slice(&bytes), bytes.clone());
+            assert_value_roundtrips_to(H128::from_slice(&bytes), H128::from_slice(&bytes));
 
             while bytes.len() < 160 / 8 {
                 bytes.push(0)
             }
-            value_roundtrips_to(H160::from_slice(&bytes), bytes.clone());
-            value_roundtrips_to(H160::from_slice(&bytes), H160::from_slice(&bytes));
+            assert_value_roundtrips_to(H160::from_slice(&bytes), bytes.clone());
+            assert_value_roundtrips_to(H160::from_slice(&bytes), H160::from_slice(&bytes));
 
             while bytes.len() < 256 / 8 {
                 bytes.push(0)
             }
-            value_roundtrips_to(H256::from_slice(&bytes), bytes.clone());
-            value_roundtrips_to(H256::from_slice(&bytes), H256::from_slice(&bytes));
+            assert_value_roundtrips_to(H256::from_slice(&bytes), bytes.clone());
+            assert_value_roundtrips_to(H256::from_slice(&bytes), H256::from_slice(&bytes));
 
             while bytes.len() < 384 / 8 {
                 bytes.push(0)
             }
-            value_roundtrips_to(H384::from_slice(&bytes), bytes.clone());
-            value_roundtrips_to(H384::from_slice(&bytes), H384::from_slice(&bytes));
+            assert_value_roundtrips_to(H384::from_slice(&bytes), bytes.clone());
+            assert_value_roundtrips_to(H384::from_slice(&bytes), H384::from_slice(&bytes));
 
             while bytes.len() < 512 / 8 {
                 bytes.push(0)
             }
-            value_roundtrips_to(H512::from_slice(&bytes), bytes.clone());
-            value_roundtrips_to(H512::from_slice(&bytes), H512::from_slice(&bytes));
+            assert_value_roundtrips_to(H512::from_slice(&bytes), bytes.clone());
+            assert_value_roundtrips_to(H512::from_slice(&bytes), H512::from_slice(&bytes));
 
             while bytes.len() < 768 / 8 {
                 bytes.push(0)
             }
-            value_roundtrips_to(H768::from_slice(&bytes), bytes.clone());
-            value_roundtrips_to(H768::from_slice(&bytes), H768::from_slice(&bytes));
+            assert_value_roundtrips_to(H768::from_slice(&bytes), bytes.clone());
+            assert_value_roundtrips_to(H768::from_slice(&bytes), H768::from_slice(&bytes));
         }
 
         test_hxxx([0u8]);
         test_hxxx([1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn encode_as_fields_works() {
+        #[derive(TypeInfo, Encode)]
+        struct Foo {
+            some_field: u64,
+            another: bool,
+        }
+
+        assert_encodes_fields_like_type(
+            BTreeMap::from([
+                ("other1", &123u64 as &dyn EncodeAsType),
+                ("another", &true as &dyn EncodeAsType),
+                ("some_field", &123u64 as &dyn EncodeAsType),
+                ("other2", &123u64 as &dyn EncodeAsType),
+            ]),
+            Foo {
+                some_field: 123,
+                another: true,
+            },
+        )
+    }
+
+    #[cfg(feature = "derive")]
+    #[test]
+    fn encode_as_fields_via_macro_works() {
+        #[derive(TypeInfo, Encode)]
+        struct Foo {
+            some_field: u64,
+            another: bool,
+        }
+
+        #[derive(TypeInfo, Encode)]
+        struct FooUnnamed(
+            String,
+            (u8,), // different types still map ok.
+            bool,
+            u8,
+        );
+
+        #[derive(EncodeAsType)]
+        #[encode_as_type(crate_path = "crate")]
+        struct FooBigger {
+            random: String,
+            some_field: u64,
+            another: bool,
+            more_random: u8,
+        }
+
+        assert_encodes_fields_like_type(
+            FooBigger {
+                random: "hello".to_string(),
+                some_field: 123,
+                another: true,
+                more_random: 1,
+            },
+            Foo {
+                some_field: 123,
+                another: true,
+            },
+        );
+        assert_encodes_fields_like_type(
+            FooBigger {
+                random: "hello".to_string(),
+                some_field: 123,
+                another: true,
+                more_random: 1,
+            },
+            FooUnnamed("hello".to_string(), (123,), true, 1),
+        );
     }
 }
