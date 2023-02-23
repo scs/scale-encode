@@ -98,7 +98,7 @@ pub trait EncodeAsFields {
             .iter()
             .map(|f| PortableField::new(None, *f, None, Vec::new()))
             .collect();
-        self.encode_as_fields_to(fields.as_slice(), types, out)
+        self.encode_as_fields_to(&fields, types, out)
     }
 
     /// This is a helper function which internally calls [`EncodeAsFields::encode_as_field_ids_to`]. Prefer to
