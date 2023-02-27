@@ -17,7 +17,6 @@ use crate::{
     error::{Error, ErrorKind, Kind, Location},
     EncodeAsFields, EncodeAsType,
 };
-use codec::{Compact, Encode};
 use scale_info::{PortableRegistry, TypeDef};
 use std::collections::HashMap;
 
@@ -59,8 +58,9 @@ where
         let mut vals_iter = self.0.clone();
         let vals_iter_len = vals_iter.len();
 
-        // If the source or target type are tuples or composites with one field, "unwrap"
-        // that field and just try encoding the inner content.
+        // We treat tupels/composites as distinct from sequences/arrays. We can skin into
+        // any tuples/composites with 1 field (eg newtype wrappers), but we don't do the same
+        // for sequences.
         let type_id = super::find_single_entry_with_same_repr(type_id, types);
         if vals_iter_len == 1 {
             return vals_iter
@@ -74,6 +74,7 @@ where
             .resolve(type_id)
             .ok_or_else(|| Error::new(ErrorKind::TypeNotFound(type_id)))?;
 
+        // A composite type only encodes into a composite type:
         match ty.type_def() {
             TypeDef::Tuple(tuple) => {
                 let fields = tuple.fields();
@@ -83,50 +84,8 @@ where
                 let fields = composite.fields();
                 self.encode_as_fields_to(fields, types, out)
             }
-            TypeDef::Array(array) => {
-                let array_len = array.len() as usize;
-
-                if vals_iter_len != array_len {
-                    return Err(Error::new(ErrorKind::WrongLength {
-                        actual_len: vals_iter_len,
-                        expected_len: array_len,
-                    }));
-                }
-
-                for (idx, (name, val)) in vals_iter.enumerate() {
-                    let loc = if let Some(name) = name {
-                        Location::field(name.to_string())
-                    } else {
-                        Location::idx(idx)
-                    };
-                    val.encode_as_type_to(array.type_param().id(), types, out)
-                        .map_err(|e| e.at(loc))?;
-                }
-                Ok(())
-            }
-            TypeDef::Sequence(seq) => {
-                // sequences start with compact encoded length:
-                Compact(vals_iter_len as u32).encode_to(out);
-                for (idx, (name, val)) in vals_iter.enumerate() {
-                    let loc = if let Some(name) = name {
-                        Location::field(name.to_string())
-                    } else {
-                        Location::idx(idx)
-                    };
-                    val.encode_as_type_to(seq.type_param().id(), types, out)
-                        .map_err(|e| e.at(loc))?;
-                }
-                Ok(())
-            }
             _ => {
-                // Is there exactly one item to iterate over?
-                let (Some((_name, item)), None) = (vals_iter.next(), vals_iter.next()) else {
-                    return Err(Error::new(ErrorKind::WrongShape { actual: Kind::Tuple, expected: type_id }));
-                };
-                // Tuple with 1 entry? before giving up, try encoding the inner entry instead:
-                item.encode_as_type_to(type_id, types, out)
-                    .map_err(|e| e.at_idx(0))?;
-                Ok(())
+                Err(Error::new(ErrorKind::WrongShape { actual: Kind::Tuple, expected: type_id }))
             }
         }
     }

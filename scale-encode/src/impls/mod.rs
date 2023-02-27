@@ -459,7 +459,7 @@ fn find_single_entry_with_same_repr(type_id: u32, types: &PortableRegistry) -> u
 // Encode some iterator of items to the type provided.
 fn encode_iterable_sequence_to<I>(
     len: usize,
-    mut it: I,
+    it: I,
     type_id: u32,
     types: &PortableRegistry,
     out: &mut Vec<u8>,
@@ -506,20 +506,10 @@ where
             encode_iterable_sequence_to(len, it, com.fields()[0].ty().id(), types, out)
         }
         _ => {
-            // As a last ditch attempt, if the sequence we're trying to encode has 1 value in,
-            // then try encoding that value to the target type before giving up.
-            let single_item = if len == 1 { it.next() } else { None };
-
-            if let Some(item) = single_item {
-                item.encode_as_type_to(type_id, types, out)
-                    .map_err(|e| e.at_idx(0))?;
-                Ok(())
-            } else {
-                Err(Error::new(ErrorKind::WrongShape {
-                    actual: Kind::Array,
-                    expected: type_id,
-                }))
-            }
+            Err(Error::new(ErrorKind::WrongShape {
+                actual: Kind::Array,
+                expected: type_id,
+            }))
         }
     }
 }
@@ -763,17 +753,15 @@ mod test {
 
     #[test]
     fn sequences_roundtrip_into_eachother() {
-        // Tuples can turn to sequences or arrays:
-        assert_value_roundtrips_to((1u8, 2u8, 3u8), vec![1u8, 2u8, 3u8]);
-        assert_value_roundtrips_to((1u8, 2u8, 3u8), [1u8, 2u8, 3u8]);
+        // Nesting can be resolved (but tuples and sequences are distinct)
+        assert_value_roundtrips_to(([1u8, 2u8, 3u8],), vec![1u8, 2u8, 3u8]);
+        assert_value_roundtrips_to(([(1u8,), (2u8,), (3u8,)],), (([1u8, 2u8, 3u8],),));
+        assert_value_roundtrips_to(((([1u8],),),), (([1u8],),));
+        assert_value_roundtrips_to((([(1u8,)],),), (([1u8],),));
+    }
 
-        // Even when inner types differ but remain compatible on either side.
-        assert_value_roundtrips_to((1u8, 2u8, 3u8), vec![1u128, 2u128, 3u128]);
-        assert_value_roundtrips_to((1u8, 2u8, 3u8), vec![(1u128,), (2u128,), (3u128,)]);
-        assert_value_roundtrips_to(((1u8,), (2u8,), 3u8), vec![1u128, 2u128, 3u128]);
-        assert_value_roundtrips_to((([[1u8]],), (2u8,), 3u8), vec![1u128, 2u128, 3u128]);
-
-        // tuples can also encode to structs of same lengths (with inner type compat):
+    #[test]
+    fn tuples_to_structs() {
         #[derive(Debug, scale_info::TypeInfo, codec::Decode, PartialEq)]
         struct Foo {
             a: (u32,),
@@ -807,13 +795,6 @@ mod test {
                 val: "hi".to_string(),
             },),
         );
-
-        // Sequence types will try to unwrap composite/tuple things in the target type to
-        // find a sequenceish thing to encode to.
-        assert_value_roundtrips_to(vec![1i128], (Wrapper { val: vec![1i128] },));
-        // and as a last5 ditch attempt we'll unwrap a single value in a sequence type and
-        // try encoding to that.
-        assert_value_roundtrips_to(vec![1i128], (Wrapper { val: 1i128 },));
     }
 
     #[test]
