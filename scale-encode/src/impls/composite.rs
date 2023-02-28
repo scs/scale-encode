@@ -84,9 +84,10 @@ where
                 let fields = composite.fields();
                 self.encode_as_fields_to(fields, types, out)
             }
-            _ => {
-                Err(Error::new(ErrorKind::WrongShape { actual: Kind::Tuple, expected: type_id }))
-            }
+            _ => Err(Error::new(ErrorKind::WrongShape {
+                actual: Kind::Tuple,
+                expected: type_id,
+            })),
         }
     }
 }

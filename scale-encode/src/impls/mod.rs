@@ -505,12 +505,10 @@ where
         TypeDef::Composite(com) if com.fields().len() == 1 => {
             encode_iterable_sequence_to(len, it, com.fields()[0].ty().id(), types, out)
         }
-        _ => {
-            Err(Error::new(ErrorKind::WrongShape {
-                actual: Kind::Array,
-                expected: type_id,
-            }))
-        }
+        _ => Err(Error::new(ErrorKind::WrongShape {
+            actual: Kind::Array,
+            expected: type_id,
+        })),
     }
 }
 

@@ -38,10 +38,7 @@ pub type PortableFieldId = scale_info::interner::UntrackedSymbol<std::any::TypeI
 pub use scale_encode_derive::EncodeAsType;
 
 /// This trait signals that some static type can possibly be SCALE encoded given some
-/// `type_id` and [`PortableRegistry`] which dictates the expected encoding. A [`Context`]
-/// is also passed around, which is used internally to improve error reporting. Implementations
-/// should use the [`Context::at`] method to indicate the current location if they would like
-/// it to show up in error output.
+/// `type_id` and [`PortableRegistry`] which dictates the expected encoding.
 pub trait EncodeAsType {
     /// Given some `type_id`, `types`, a `context` and some output target for the SCALE encoded bytes,
     /// attempt to SCALE encode the current value into the type given by `type_id`.
