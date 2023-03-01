@@ -58,36 +58,69 @@ where
         let mut vals_iter = self.0.clone();
         let vals_iter_len = vals_iter.len();
 
-        // We treat tupels/composites as distinct from sequences/arrays. We can skin into
-        // any tuples/composites with 1 field (eg newtype wrappers), but we don't do the same
-        // for sequences.
-        let type_id = super::find_single_entry_with_same_repr(type_id, types);
-        if vals_iter_len == 1 {
-            return vals_iter
-                .next()
-                .unwrap()
-                .1
-                .encode_as_type_to(type_id, types, out);
-        }
+        // Skip through any single field composites/tuples without names. If there
+        // are names, we may want to line up input field(s) on them.
+        let type_id = skip_through_single_unnamed_fields(type_id, types);
 
         let ty = types
             .resolve(type_id)
             .ok_or_else(|| Error::new(ErrorKind::TypeNotFound(type_id)))?;
 
-        // A composite type only encodes into a composite type:
         match ty.type_def() {
+            // If we see a tuple type, it'll have more than one field else it'd have been skipped above.
             TypeDef::Tuple(tuple) => {
+                // If there is exactly one val, it won't line up with the tuple then, so
+                // try encoding one level in instead.
+                if vals_iter_len == 1 {
+                    return vals_iter
+                        .next()
+                        .unwrap()
+                        .1
+                        .encode_as_type_to(type_id, types, out);
+                }
+
                 let fields = tuple.fields();
                 self.encode_as_field_ids_to(fields, types, out)
             }
+            // If we see a composite type, it has either named fields or !=1 unnamed fields.
             TypeDef::Composite(composite) => {
+                // If vals are named, we may need to line them up with some named composite.
+                // If they aren't named, we only care about lining up based on matching lengths.
+                let is_named_vals = vals_iter.clone().any(|(name, _)| name.is_some());
+
+                // If there is exactly one val that isn't named, then we know it won't line
+                // up with this composite then, so try encoding one level in.
+                if !is_named_vals && vals_iter_len == 1 {
+                    return vals_iter
+                        .next()
+                        .unwrap()
+                        .1
+                        .encode_as_type_to(type_id, types, out);
+                }
+
                 let fields = composite.fields();
                 self.encode_as_fields_to(fields, types, out)
             }
-            _ => Err(Error::new(ErrorKind::WrongShape {
-                actual: Kind::Tuple,
-                expected: type_id,
-            })),
+            // We may have skipped through to some primitive or other type.
+            _ => {
+                // Rather than immediately giving up, we should at least see whether
+                // we can skip one level in to our value and encode that.
+                if vals_iter_len == 1 {
+                    return vals_iter
+                        .next()
+                        .unwrap()
+                        .1
+                        .encode_as_type_to(type_id, types, out);
+                }
+
+                // If we get here, then it means the value we were given had more than
+                // one field, and the type we were given was ultimately some one-field thing
+                // that contained a non composite/tuple type, so it would never work out.
+                Err(Error::new(ErrorKind::WrongShape {
+                    actual: Kind::Tuple,
+                    expected: type_id,
+                }))
+            }
         }
     }
 }
@@ -156,5 +189,24 @@ where
             }
             Ok(())
         }
+    }
+}
+
+// Single unnamed fields carry no useful information and can be skipped through.
+// Single named fields may still be useful to line up with named composites.
+fn skip_through_single_unnamed_fields(type_id: u32, types: &PortableRegistry) -> u32 {
+    let Some(ty) = types.resolve(type_id) else {
+        return type_id
+    };
+    match ty.type_def() {
+        TypeDef::Tuple(tuple) if tuple.fields().len() == 1 => {
+            skip_through_single_unnamed_fields(tuple.fields()[0].id(), types)
+        }
+        TypeDef::Composite(composite)
+            if composite.fields().len() == 1 && composite.fields()[0].name().is_none() =>
+        {
+            skip_through_single_unnamed_fields(composite.fields()[0].ty().id(), types)
+        }
+        _ => type_id,
     }
 }

@@ -52,9 +52,10 @@ use scale_info::{PortableRegistry, TypeDef};
 ///     }
 /// }
 /// ```
-#[doc(hidden)]
 pub struct Variant<'a, Vals> {
+    /// The name of the variant we'll try to encode into.
     pub name: &'a str,
+    /// The fields of the variant that we wish to encode.
     pub fields: super::composite::Composite<Vals>,
 }
 

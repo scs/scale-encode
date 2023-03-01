@@ -310,11 +310,13 @@ impl_encode_number!(u16);
 impl_encode_number!(u32);
 impl_encode_number!(u64);
 impl_encode_number!(u128);
+impl_encode_number!(usize);
 impl_encode_number!(i8);
 impl_encode_number!(i16);
 impl_encode_number!(i32);
 impl_encode_number!(i64);
 impl_encode_number!(i128);
+impl_encode_number!(isize);
 
 // Encode tuple types to any matching type.
 macro_rules! impl_encode_tuple {
@@ -381,11 +383,19 @@ impl<K: AsRef<str>, V: EncodeAsType> EncodeAsType for BTreeMap<K, V> {
         types: &PortableRegistry,
         out: &mut Vec<u8>,
     ) -> Result<(), Error> {
-        Composite(
-            self.iter()
-                .map(|(k, v)| (Some(k.as_ref()), v as &dyn EncodeAsType)),
-        )
-        .encode_as_type_to(type_id, types, out)
+        let ty = types
+            .resolve(type_id)
+            .ok_or_else(|| Error::new(ErrorKind::TypeNotFound(type_id)))?;
+
+        if matches!(ty.type_def(), TypeDef::Array(_) | TypeDef::Sequence(_)) {
+            encode_iterable_sequence_to(self.len(), self.values(), type_id, types, out)
+        } else {
+            Composite(
+                self.iter()
+                    .map(|(k, v)| (Some(k.as_ref()), v as &dyn EncodeAsType)),
+            )
+            .encode_as_type_to(type_id, types, out)
+        }
     }
 }
 impl<K: AsRef<str>, V: EncodeAsType> EncodeAsFields for BTreeMap<K, V> {
