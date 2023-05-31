@@ -38,7 +38,7 @@ use codec::Encode;
 use scale_encode::EncodeAsType;
 use scale_info::{PortableRegistry, TypeInfo};
 
-// We are comonly provided type information, but for our examples we construct type info from
+// We are commonly provided type information, but for our examples we construct type info from
 // any type that implements `TypeInfo`.
 fn get_type_info<T: TypeInfo + 'static>() -> (u32, PortableRegistry) {
     let m = scale_info::MetaType::new::<T>();
@@ -149,9 +149,6 @@ pub use error::Error;
 pub use crate::impls::{Composite, Variant};
 pub use scale_info::PortableRegistry;
 
-#[cfg(feature = "derive")]
-pub use scale_encode_derive::EncodeAsType;
-
 /// This trait signals that some static type can possibly be SCALE encoded given some
 /// `type_id` and [`PortableRegistry`] which dictates the expected encoding.
 pub trait EncodeAsType {
@@ -178,18 +175,18 @@ pub trait EncodeAsType {
 /// tuple and struct types, and is automatically implemented via the [`macro@EncodeAsType`] macro.
 pub trait EncodeAsFields {
     /// Given some fields describing the shape of a type, attempt to encode to that shape.
-    fn encode_as_fields_to<'a, I: FieldIter<'a>>(
+    fn encode_as_fields_to(
         &self,
-        fields: I,
+        fields: &mut dyn FieldIter<'_>,
         types: &PortableRegistry,
         out: &mut Vec<u8>,
     ) -> Result<(), Error>;
 
     /// This is a helper function which internally calls [`EncodeAsFields::encode_as_fields_to`]. Prefer to
     /// implement that instead.
-    fn encode_as_fields<'a, I: FieldIter<'a>>(
+    fn encode_as_fields(
         &self,
-        fields: I,
+        fields: &mut dyn FieldIter<'_>,
         types: &PortableRegistry,
     ) -> Result<Vec<u8>, Error> {
         let mut out = Vec::new();
@@ -232,5 +229,87 @@ impl<'a> Field<'a> {
 }
 
 /// An iterator over a set of fields.
-pub trait FieldIter<'a>: Iterator<Item = Field<'a>> + Clone {}
-impl<'a, T> FieldIter<'a> for T where T: Iterator<Item = Field<'a>> + Clone {}
+pub trait FieldIter<'a>: Iterator<Item = Field<'a>> {}
+impl<'a, T> FieldIter<'a> for T where T: Iterator<Item = Field<'a>> {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    // Confirm object safety of EncodeAsFields; we want this.
+    // (doesn't really need to run; compile time only.)
+    #[test]
+    fn is_object_safe() {
+        fn _foo(_input: Box<dyn EncodeAsFields>) {}
+    }
+}
+
+/// The `EncodeAsType` derive macro can be used to implement `EncodeAsType`
+/// on structs and enums whose fields all implement `EncodeAsType`.
+///
+/// # Examples
+///
+/// This can be applied to structs and enums:
+///
+/// ```rust
+/// use scale_encode::EncodeAsType;
+///
+/// #[derive(EncodeAsType)]
+/// struct Foo(String);
+///
+/// #[derive(EncodeAsType)]
+/// struct Bar {
+///     a: u64,
+///     b: bool
+/// }
+///
+/// #[derive(EncodeAsType)]
+/// enum Wibble<T> {
+///     A(usize, bool, T),
+///     B { value: String },
+///     C
+/// }
+/// ```
+///
+/// If you aren't directly depending on `scale_encode`, you must tell the macro what the path
+/// to it is so that it knows how to generate the relevant impls:
+///
+/// ```rust
+/// # use scale_encode as alt_path;
+/// use alt_path::EncodeAsType;
+///
+/// #[derive(EncodeAsType)]
+/// #[encode_as_type(crate_path = "alt_path")]
+/// struct Foo<T> {
+///    a: u64,
+///    b: T
+/// }
+/// ```
+///
+/// If you use generics, the macro will assume that each of them also implements `EncodeAsType`.
+/// This can be overridden when it's not the case (the compiler will ensure that you can't go wrong here):
+///
+/// ```rust
+/// use scale_encode::EncodeAsType;
+///
+/// #[derive(EncodeAsType)]
+/// #[encode_as_type(trait_bounds = "")]
+/// struct Foo<T> {
+///    a: u64,
+///    b: bool,
+///    c: std::marker::PhantomData<T>
+/// }
+/// ```
+///
+/// # Attributes
+///
+/// - `#[encode_as_type(crate_path = "::path::to::scale_encode")]`:
+///   By default, the macro expects `scale_encode` to be a top level dependency,
+///   available as `::scale_encode`. If this is not the case, you can provide the
+///   crate path here.
+/// - `#[encode_as_type(trait_bounds = "T: Foo, U::Input: EncodeAsType")]`:
+///   By default, for each generate type parameter, the macro will add trait bounds such
+///   that these type parameters must implement `EncodeAsType` too. You can override this
+///   behaviour and provide your own trait bounds instead using this option.
+#[cfg(feature = "derive")]
+pub use scale_encode_derive::EncodeAsType;
