@@ -16,9 +16,7 @@
 //! An error that is emitted whenever some encoding fails.
 mod context;
 
-use alloc::borrow::Cow;
-use alloc::boxed::Box;
-use alloc::string::String;
+use alloc::{borrow::Cow, boxed::Box, string::String};
 use core::fmt::Display;
 
 pub use context::{Context, Location};

@@ -16,8 +16,7 @@
 //! This module provides a [`Context`] type, which tracks the path
 //! that we're attempting to encode to aid in error reporting.
 
-use alloc::borrow::Cow;
-use alloc::vec::Vec;
+use alloc::{borrow::Cow, vec::Vec};
 
 /// A cheaply clonable opaque context which allows us to track the current
 /// location into a type that we're trying to encode, to aid in

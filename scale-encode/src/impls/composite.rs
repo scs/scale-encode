@@ -17,9 +17,7 @@ use crate::{
     error::{Error, ErrorKind, Kind, Location},
     EncodeAsFields, EncodeAsType, Field, FieldIter,
 };
-use alloc::collections::BTreeMap;
-use alloc::string::ToString;
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, string::ToString, vec::Vec};
 use scale_info::{PortableRegistry, TypeDef};
 
 /// This type represents named or unnamed composite values, and can be used

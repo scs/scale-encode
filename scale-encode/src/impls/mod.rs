@@ -25,24 +25,29 @@ mod variant;
 pub use composite::Composite;
 pub use variant::Variant;
 
-use crate::error::{Error, ErrorKind, Kind};
-use crate::{EncodeAsFields, EncodeAsType, FieldIter};
-use alloc::borrow::ToOwned;
-use alloc::boxed::Box;
-use alloc::collections::{BTreeMap, BTreeSet, BinaryHeap, LinkedList, VecDeque};
-use alloc::rc::Rc;
-use alloc::string::String;
-use alloc::string::ToString;
-use alloc::sync::Arc;
-use alloc::vec::Vec;
-use codec::{Compact, Encode};
-use core::marker::PhantomData;
-use core::num::{
-    NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
-    NonZeroU32, NonZeroU64, NonZeroU8,
+use crate::{
+    error::{Error, ErrorKind, Kind},
+    EncodeAsFields, EncodeAsType, FieldIter,
 };
-use core::ops::{Range, RangeInclusive};
-use core::time::Duration;
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet, BinaryHeap, LinkedList, VecDeque},
+    rc::Rc,
+    string::{String, ToString},
+    sync::Arc,
+    vec::Vec,
+};
+use codec::{Compact, Encode};
+use core::{
+    marker::PhantomData,
+    num::{
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
+        NonZeroU32, NonZeroU64, NonZeroU8,
+    },
+    ops::{Range, RangeInclusive},
+    time::Duration,
+};
 use scale_info::{PortableRegistry, TypeDef, TypeDefPrimitive};
 
 impl EncodeAsType for bool {
