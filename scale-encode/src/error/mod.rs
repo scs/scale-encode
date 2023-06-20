@@ -142,7 +142,7 @@ type CustomError = Box<dyn core::error::Error + Send + Sync + 'static>;
 
 /// The kind of type that we're trying to encode.
 #[allow(missing_docs)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, derive_more::Display)]
 pub enum Kind {
     Struct,
     Tuple,
@@ -159,11 +159,12 @@ pub enum Kind {
 mod test {
     use super::*;
 
-    #[derive(thiserror::Error, Debug)]
+    #[derive(Debug, derive_more::Display)]
     enum MyError {
-        #[error("Foo!")]
         Foo,
     }
+
+    impl core::error::Error for MyError {}
 
     #[test]
     fn custom_error() {

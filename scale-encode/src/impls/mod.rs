@@ -953,7 +953,7 @@ mod test {
 
     #[test]
     fn hxxx_types_roundtrip_ok() {
-        use primitive_types::{H128, H160, H256, H384, H512, H768};
+        use super::primitive_types::{H128, H160, H256, H384, H512, H768};
 
         // Check that Hxxx types roundtirp to themselves or to byte sequences
         fn test_hxxx(bytes: impl IntoIterator<Item = u8> + Clone) {
