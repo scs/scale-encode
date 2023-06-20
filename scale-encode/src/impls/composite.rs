@@ -23,7 +23,7 @@ use scale_info::{PortableRegistry, TypeDef};
 #[cfg(not(feature = "std"))]
 use alloc::collections::BTreeMap as MapType;
 #[cfg(feature = "std")]
-use std::collection::HashMap as MapType;
+use std::collections::HashMap as MapType;
 
 /// This type represents named or unnamed composite values, and can be used
 /// to help generate `EncodeAsType` impls. It's primarily used by the exported
