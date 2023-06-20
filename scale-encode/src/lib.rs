@@ -13,10 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
-#[cfg(not(feature = "std"))]
-#![feature(error_in_core)]
+#![cfg_attr(not(feature = "std"), no_std, feature(error_in_core))]
 
 /*!
 `parity-scale-codec` provides an `Encode` trait which allows types to SCALE encode themselves based on their shape.
