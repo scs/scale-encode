@@ -239,19 +239,6 @@ impl<'a> Field<'a> {
 pub trait FieldIter<'a>: Iterator<Item = Field<'a>> {}
 impl<'a, T> FieldIter<'a> for T where T: Iterator<Item = Field<'a>> {}
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use alloc::boxed::Box;
-
-    // Confirm object safety of EncodeAsFields; we want this.
-    // (doesn't really need to run; compile time only.)
-    #[test]
-    fn is_object_safe() {
-        fn _foo(_input: Box<dyn EncodeAsFields>) {}
-    }
-}
-
 /// The `EncodeAsType` derive macro can be used to implement `EncodeAsType`
 /// on structs and enums whose fields all implement `EncodeAsType`.
 ///
@@ -321,3 +308,16 @@ mod test {
 ///   behaviour and provide your own trait bounds instead using this option.
 #[cfg(feature = "derive")]
 pub use scale_encode_derive::EncodeAsType;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use alloc::boxed::Box;
+
+    // Confirm object safety of EncodeAsFields; we want this.
+    // (doesn't really need to run; compile time only.)
+    #[test]
+    fn is_object_safe() {
+        fn _foo(_input: Box<dyn EncodeAsFields>) {}
+    }
+}
