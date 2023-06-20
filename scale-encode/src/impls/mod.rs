@@ -25,20 +25,30 @@ mod variant;
 pub use composite::Composite;
 pub use variant::Variant;
 
-use crate::error::{Error, ErrorKind, Kind};
-use crate::{EncodeAsFields, EncodeAsType, FieldIter};
-use codec::{Compact, Encode};
-use core::num::{
-    NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
-    NonZeroU32, NonZeroU64, NonZeroU8,
+use crate::{
+    error::{Error, ErrorKind, Kind},
+    EncodeAsFields, EncodeAsType, FieldIter,
 };
-use core::ops::{Range, RangeInclusive};
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet, BinaryHeap, LinkedList, VecDeque},
+    rc::Rc,
+    string::{String, ToString},
+    sync::Arc,
+    vec::Vec,
+};
+use codec::{Compact, Encode};
+use core::{
+    marker::PhantomData,
+    num::{
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
+        NonZeroU32, NonZeroU64, NonZeroU8,
+    },
+    ops::{Range, RangeInclusive},
+    time::Duration,
+};
 use scale_info::{PortableRegistry, TypeDef, TypeDefPrimitive};
-use std::collections::{BTreeMap, BTreeSet, BinaryHeap, LinkedList, VecDeque};
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::time::Duration;
 
 impl EncodeAsType for bool {
     fn encode_as_type_to(
@@ -102,7 +112,7 @@ where
     }
 }
 
-impl<'a, T> EncodeAsType for std::borrow::Cow<'a, T>
+impl<'a, T> EncodeAsType for alloc::borrow::Cow<'a, T>
 where
     T: 'a + EncodeAsType + ToOwned + ?Sized,
 {
@@ -943,7 +953,7 @@ mod test {
 
     #[test]
     fn hxxx_types_roundtrip_ok() {
-        use ::primitive_types::{H128, H160, H256, H384, H512, H768};
+        use super::primitive_types::{H128, H160, H256, H384, H512, H768};
 
         // Check that Hxxx types roundtirp to themselves or to byte sequences
         fn test_hxxx(bytes: impl IntoIterator<Item = u8> + Clone) {

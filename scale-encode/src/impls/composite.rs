@@ -17,8 +17,13 @@ use crate::{
     error::{Error, ErrorKind, Kind, Location},
     EncodeAsFields, EncodeAsType, Field, FieldIter,
 };
+use alloc::{string::ToString, vec::Vec};
 use scale_info::{PortableRegistry, TypeDef};
-use std::collections::HashMap;
+
+#[cfg(not(feature = "std"))]
+use alloc::collections::BTreeMap as MapType;
+#[cfg(feature = "std")]
+use std::collection::HashMap as MapType;
 
 /// This type represents named or unnamed composite values, and can be used
 /// to help generate `EncodeAsType` impls. It's primarily used by the exported
@@ -156,7 +161,7 @@ where
             // then encode to the target type by matching the names. If fields are
             // named, we don't even mind if the number of fields doesn't line up;
             // we just ignore any fields we provided that aren't needed.
-            let source_fields_by_name: HashMap<&str, &dyn EncodeAsType> = vals_iter
+            let source_fields_by_name: MapType<&str, &dyn EncodeAsType> = vals_iter
                 .map(|(name, val)| (name.unwrap_or(""), val))
                 .collect();
 
