@@ -242,6 +242,7 @@ impl<'a, T> FieldIter<'a> for T where T: Iterator<Item = Field<'a>> {}
 #[cfg(test)]
 mod test {
     use super::*;
+    use alloc::boxed::Box;
 
     // Confirm object safety of EncodeAsFields; we want this.
     // (doesn't really need to run; compile time only.)
