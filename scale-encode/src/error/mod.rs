@@ -18,11 +18,12 @@ mod context;
 
 use alloc::{borrow::Cow, boxed::Box, string::String};
 use core::fmt::Display;
+use derive_more::From;
 
 pub use context::{Context, Location};
 
 /// An error produced while attempting to encode some type.
-#[derive(Debug)]
+#[derive(Debug, From)]
 pub struct Error {
     context: Context,
     kind: ErrorKind,
