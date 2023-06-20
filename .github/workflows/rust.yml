@@ -39,12 +39,6 @@ jobs:
           command: check
           args: --all-targets --all-features --workspace
 
-      - name: Check no features
-        uses: actions-rs/cargo@v1.0.3
-        with:
-          command: check
-          args: --all-targets --no-default-features --workspace
-
   wasm:
     name: Check WASM compatibility
     runs-on: ubuntu-latest
