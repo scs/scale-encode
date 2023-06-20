@@ -16,11 +16,18 @@
 //! An error that is emitted whenever some encoding fails.
 mod context;
 
+pub use context::{Context, Location};
+
 use alloc::{borrow::Cow, boxed::Box, string::String};
 use core::fmt::Display;
 use derive_more::From;
 
-pub use context::{Context, Location};
+// Error in core is currently only available as nightly feature. Therefore, we
+// differentiate here between std and no_std environments.
+#[cfg(not(feature = "std"))]
+use core::error::Error as StdError;
+#[cfg(feature = "std")]
+use std::error::Error as StdError;
 
 /// An error produced while attempting to encode some type.
 #[derive(Debug, From)]
@@ -139,7 +146,7 @@ impl From<CustomError> for ErrorKind {
     }
 }
 
-type CustomError = Box<dyn core::error::Error + Send + Sync + 'static>;
+type CustomError = Box<dyn StdError + Send + Sync + 'static>;
 
 /// The kind of type that we're trying to encode.
 #[allow(missing_docs)]
@@ -165,7 +172,7 @@ mod test {
         Foo,
     }
 
-    impl core::error::Error for MyError {}
+    impl StdError for MyError {}
 
     #[test]
     fn custom_error() {
