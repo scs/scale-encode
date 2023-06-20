@@ -13,6 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+#![feature(error_in_core)]
+
 /*!
 `parity-scale-codec` provides an `Encode` trait which allows types to SCALE encode themselves based on their shape.
 This crate builds on this, and allows types to encode themselves based on [`scale_info`] type information. It
@@ -148,6 +151,10 @@ pub use error::Error;
 // Useful types to help implement EncodeAsType/Fields with:
 pub use crate::impls::{Composite, Variant};
 pub use scale_info::PortableRegistry;
+
+extern crate alloc;
+
+use alloc::vec::Vec;
 
 /// This trait signals that some static type can possibly be SCALE encoded given some
 /// `type_id` and [`PortableRegistry`] which dictates the expected encoding.

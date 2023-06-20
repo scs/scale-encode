@@ -16,13 +16,15 @@
 //! An error that is emitted whenever some encoding fails.
 mod context;
 
-use std::borrow::Cow;
-use std::fmt::Display;
+use alloc::borrow::Cow;
+use alloc::boxed::Box;
+use alloc::string::String;
+use core::fmt::Display;
 
 pub use context::{Context, Location};
 
 /// An error produced while attempting to encode some type.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub struct Error {
     context: Context,
     kind: ErrorKind,
@@ -83,21 +85,19 @@ impl Error {
 }
 
 impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let path = self.context.path();
         let kind = &self.kind;
-        write!(f, "Error at {path}: {kind}")
+        write!(f, "Error at {path}: {kind:?}")
     }
 }
 
 /// The underlying nature of the error.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum ErrorKind {
     /// Cannot find a given type.
-    #[error("Cannot find type with ID {0}")]
     TypeNotFound(u32),
     /// Cannot encode the actual type given into the target type ID.
-    #[error("Cannot encode {actual:?} into type with ID {expected}")]
     WrongShape {
         /// The actual kind we have to encode
         actual: Kind,
@@ -105,7 +105,6 @@ pub enum ErrorKind {
         expected: u32,
     },
     /// The types line up, but the expected length of the target type is different from the length of the input value.
-    #[error("Cannot encode to type; expected length {expected_len} but got length {actual_len}")]
     WrongLength {
         /// Length we have
         actual_len: usize,
@@ -113,7 +112,6 @@ pub enum ErrorKind {
         expected_len: usize,
     },
     /// We cannot encode the number given into the target type; it's out of range.
-    #[error("Number {value} is out of range for target type {expected}")]
     NumberOutOfRange {
         /// A string represenatation of the numeric value that was out of range.
         value: String,
@@ -121,7 +119,6 @@ pub enum ErrorKind {
         expected: u32,
     },
     /// Cannot find a variant with a matching name on the target type.
-    #[error("Variant {name} does not exist on type with ID {expected}")]
     CannotFindVariant {
         /// Variant name we can't find in the expected type.
         name: String,
@@ -129,17 +126,21 @@ pub enum ErrorKind {
         expected: u32,
     },
     /// Cannot find a field on our source type that's needed for the target type.
-    #[error("Field {name} does not exist in our source struct")]
     CannotFindField {
         /// Name of the field which was not provided.
         name: String,
     },
     /// A custom error.
-    #[error("Custom error: {0}")]
     Custom(CustomError),
 }
 
-type CustomError = Box<dyn std::error::Error + Send + Sync + 'static>;
+impl From<CustomError> for ErrorKind {
+    fn from(err: CustomError) -> ErrorKind {
+        ErrorKind::Custom(err)
+    }
+}
+
+type CustomError = Box<dyn core::error::Error + Send + Sync + 'static>;
 
 /// The kind of type that we're trying to encode.
 #[allow(missing_docs)]
