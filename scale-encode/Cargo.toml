@@ -19,7 +19,7 @@ default = ["std", "derive", "primitive-types", "bits"]
 # Activates std feature.
 std = ["scale-info/std"]
 
-# Include the derive proc macro.
+# Include the derive proc macro. This is only availbale in std.
 derive = ["dep:scale-encode-derive"]
 
 # impls for key primitive-types.
