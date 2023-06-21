@@ -72,8 +72,8 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      # Set default target arch to ensure the toolchain for no-std
-      # environments is used.
+      # Set default target aarch64-unknown-none because it doesn't support `std`.
+      # So this will fail if the crate is not no_std compatible.
       - name: Rust create rust-toolchain.toml
         run: echo -e "[toolchain]\nchannel = \"nightly\"\ntargets = [\"aarch64-unknown-none\"]\nprofile = \"minimal\"" > rust-toolchain.toml
 
@@ -88,8 +88,6 @@ jobs:
         uses: actions-rs/cargo@v1.0.3
         with:
           command: check
-          # The aarch64-unknown-none doesn't support `std`, so this
-          # will fail if the crate is not no_std compatible.
           args: --no-default-features --features bits,primitive-types
 
   fmt:
