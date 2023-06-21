@@ -81,6 +81,9 @@ jobs:
           target: aarch64-unknown-none
           override: true
 
+      - name: Check toolchain
+        run: rustup show
+
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
 
