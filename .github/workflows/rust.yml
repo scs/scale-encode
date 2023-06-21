@@ -72,28 +72,17 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
+      # Set default target arch to ensure the toolchain for no-std
+      # environments is used.
+      - name: Rust create rust-toolchain.toml
+        run: echo -e "[toolchain]\nchannel = \"nightly\"\ntargets = [\"aarch64-unknown-none\"]\nprofile = \"minimal\"" > rust-toolchain.toml
+
       # no_std version currently needs nightly due to error_in_core feature
       - name: Install Rust nightly toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          target: aarch64-unknown-none
-          override: true
-
-      - name: Check toolchain
         run: rustup show
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
-
-      # Set default target arch to ensure the toolchain for no-std
-      # environments is used.
-      - name: Rust set default toolchain
-        run: rustup default nightly-aarch64-unknown-none
-
-      - name: Check toolchain
-        run: rustup show
 
       - name: Check no_std build
         uses: actions-rs/cargo@v1.0.3
