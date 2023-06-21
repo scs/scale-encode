@@ -75,7 +75,7 @@ jobs:
       # Set default target arch to ensure the toolchain for no-std
       # environments is used.
       - name: Rust create rust-toolchain.toml
-        run: echo -e "[toolchain]\nchannel = \"nightly\"\ntargets = [\"aarch64-unknown-none\"]\nprofile = \"minimal\"" > rust-toolchain.toml
+        run: echo -e "[toolchain]\nchannel = \"nightly\"\ntargets = [\"thumbv6m-none-eabi\"]\nprofile = \"minimal\"" > rust-toolchain.toml
 
       # no_std version currently needs nightly due to error_in_core feature
       - name: Install Rust nightly toolchain
