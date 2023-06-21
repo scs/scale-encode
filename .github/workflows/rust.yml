@@ -81,14 +81,6 @@ jobs:
       - name: Install Rust nightly toolchain
         run: rustup show
 
-      # Ensure default target is no-std environment.
-      - name: Install Rust nightly toolchain
-        run: rustup set default-host aarch64-unknown-none
-
-      - name: check
-        run: rustup show
-
-
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
 
