@@ -16,8 +16,6 @@
 //! An error that is emitted whenever some encoding fails.
 mod context;
 
-pub use context::{Context, Location};
-
 use alloc::{borrow::Cow, boxed::Box, string::String};
 use core::fmt::Display;
 use derive_more::From;
@@ -28,6 +26,8 @@ use derive_more::From;
 use core::error::Error as StdError;
 #[cfg(feature = "std")]
 use std::error::Error as StdError;
+
+pub use context::{Context, Location};
 
 /// An error produced while attempting to encode some type.
 #[derive(Debug, From)]
