@@ -98,7 +98,7 @@ jobs:
         uses: actions-rs/cargo@v1.0.3
         with:
           command: check
-          args: --no-default-features --features bits,primitive-types
+          args: --no-default-features --features bits,primitive-types,derive
 
   fmt:
     name: Cargo fmt
