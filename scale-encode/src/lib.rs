@@ -141,6 +141,8 @@ assert_encodes_to(
 */
 #![deny(missing_docs)]
 
+extern crate alloc;
+
 mod impls;
 
 pub mod error;
@@ -151,7 +153,11 @@ pub use error::Error;
 pub use crate::impls::{Composite, Variant};
 pub use scale_info::PortableRegistry;
 
-extern crate alloc;
+/// Re-exports of external crates.
+pub mod ext {
+    #[cfg(feature = "primitive-types")]
+    pub use primitive_types;
+}
 
 use alloc::vec::Vec;
 
