@@ -86,11 +86,6 @@ jobs:
           target: aarch64-unknown-none
           override: true
 
-      # Ensure cargo is run on the no_std target architecture. Specifying `--target` does not work here,
-      # because it automatically activates dev-dependencies, which are not no_std compatible.
-      - name: Rust create rust-toolchain.toml
-        run: echo -e "[toolchain]\ntargets = [\"aarch64-unknown-none\"]" > rust-toolchain.toml
-
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
 
@@ -98,7 +93,9 @@ jobs:
         uses: actions-rs/cargo@v1.0.3
         with:
           command: check
-          args: --no-default-features --features bits,primitive-types,derive
+          # The aarch64-unknown-none doesn't support `std`, so this
+          # will fail if the crate is not no_std compatible.
+          args: --no-default-features --target aarch64-unknown-none --features bits,primitive-types,derive
 
   fmt:
     name: Cargo fmt
