@@ -172,7 +172,7 @@ mod test {
     #[cfg(feature = "std")]
     impl std::error::Error for MyError {}
 
-    #[cfg(not(feature = "no_std"))]
+    #[cfg(not(feature = "std"))]
     impl Into<CustomError> for MyError {
         fn into(self) -> CustomError {
             Box::new(self)
