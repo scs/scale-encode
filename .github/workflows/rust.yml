@@ -39,6 +39,12 @@ jobs:
           command: check
           args: --all-targets --all-features --workspace
 
+      - name: Check no features
+        uses: actions-rs/cargo@v1.0.3
+        with:
+          command: check
+          args: --all-targets --no-default-features --workspace
+
   wasm:
     name: Check WASM compatibility
     runs-on: ubuntu-latest
@@ -72,19 +78,18 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-        # no_std version currently needs nightly due to error_in_core feature
-      - name: Install Rust nightly toolchain
+      - name: Install Rust stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: stable
           target: aarch64-unknown-none
           override: true
 
       # Ensure cargo is run on the no_std target architecture. Specifying `--target` does not work here,
       # because it automatically activates dev-dependencies, which are not no_std compatible.
       - name: Rust create rust-toolchain.toml
-        run: echo -e "[toolchain]\nchannel = \"nightly\"\ntargets = [\"aarch64-unknown-none\"]" > rust-toolchain.toml
+        run: echo -e "[toolchain]\ntargets = [\"aarch64-unknown-none\"]" > rust-toolchain.toml
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0

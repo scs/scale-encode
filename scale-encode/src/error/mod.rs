@@ -20,13 +20,6 @@ use alloc::{borrow::Cow, boxed::Box, string::String};
 use core::fmt::Display;
 use derive_more::From;
 
-// Error in core is currently only available as nightly feature. Therefore, we
-// differentiate here between std and no_std environments.
-#[cfg(not(feature = "std"))]
-use core::error::Error as StdError;
-#[cfg(feature = "std")]
-use std::error::Error as StdError;
-
 pub use context::{Context, Location};
 
 /// An error produced while attempting to encode some type.
@@ -146,7 +139,11 @@ impl From<CustomError> for ErrorKind {
     }
 }
 
-type CustomError = Box<dyn StdError + Send + Sync + 'static>;
+#[cfg(feature = "std")]
+type CustomError = Box<dyn std::error::Error + Send + Sync + 'static>;
+
+#[cfg(not(feature = "std"))]
+type CustomError = Box<dyn core::fmt::Debug + Send + Sync + 'static>;
 
 /// The kind of type that we're trying to encode.
 #[allow(missing_docs)]
@@ -172,7 +169,15 @@ mod test {
         Foo,
     }
 
-    impl StdError for MyError {}
+    #[cfg(feature = "std")]
+    impl std::error::Error for MyError {}
+
+    #[cfg(not(feature = "no_std"))]
+    impl Into<CustomError> for MyError {
+        fn into(self) -> CustomError {
+            Box::new(self)
+        }
+    }
 
     #[test]
     fn custom_error() {
