@@ -72,14 +72,19 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      # Set default target aarch64-unknown-none because it doesn't support `std`.
-      # So this will fail if the crate is not no_std compatible.
-      - name: Rust create rust-toolchain.toml
-        run: echo -e "[toolchain]\nchannel = \"nightly\"\ntargets = [\"aarch64-unknown-none\"]\nprofile = \"minimal\"" > rust-toolchain.toml
-
-      # no_std version currently needs nightly due to error_in_core feature
+        # no_std version currently needs nightly due to error_in_core feature
       - name: Install Rust nightly toolchain
-        run: rustup show
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          target: aarch64-unknown-none
+          override: true
+
+      # Ensure cargo is run on the no_std target architecture. Specifying `--target` does not work here,
+      # because it automatically actives dev-dependencies, which are not no-std compatible.
+      - name: Rust create rust-toolchain.toml
+        run: echo -e "[toolchain]\nchannel = \"nightly\"\ntargets = [\"aarch64-unknown-none\"]" > rust-toolchain.toml
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
