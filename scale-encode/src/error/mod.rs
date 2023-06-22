@@ -18,12 +18,11 @@ mod context;
 
 use alloc::{borrow::Cow, boxed::Box, string::String};
 use core::fmt::Display;
-use derive_more::From;
 
 pub use context::{Context, Location};
 
 /// An error produced while attempting to encode some type.
-#[derive(Debug, From)]
+#[derive(Debug)]
 pub struct Error {
     context: Context,
     kind: ErrorKind,
@@ -87,7 +86,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let path = self.context.path();
         let kind = &self.kind;
-        write!(f, "Error at {path}: {kind:?}")
+        write!(f, "Error at {path}: {kind}")
     }
 }
 
@@ -139,6 +138,12 @@ impl From<CustomError> for ErrorKind {
     }
 }
 
+impl Display for ErrorKind {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
 #[cfg(feature = "std")]
 type CustomError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
@@ -147,7 +152,7 @@ type CustomError = Box<dyn core::fmt::Debug + Send + Sync + 'static>;
 
 /// The kind of type that we're trying to encode.
 #[allow(missing_docs)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug, derive_more::Display)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Kind {
     Struct,
     Tuple,
@@ -160,13 +165,25 @@ pub enum Kind {
     Number,
 }
 
+impl Display for Kind {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
 
-    #[derive(Debug, derive_more::Display)]
+    #[derive(Debug)]
     enum MyError {
         Foo,
+    }
+
+    impl Display for MyError {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            write!(f, "{self:?}")
+        }
     }
 
     #[cfg(feature = "std")]
