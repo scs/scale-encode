@@ -537,6 +537,7 @@ where
 mod test {
     use super::*;
     use crate::{EncodeAsFields, Field};
+    use alloc::vec;
     use codec::Decode;
     use core::fmt::Debug;
     use scale_info::TypeInfo;
