@@ -147,7 +147,10 @@ mod impls;
 
 pub mod error;
 
+// This is exported for generated derive code to use, to be compatible with std or no-std as needed.
+#[doc(hidden)]
 pub use alloc::vec::Vec;
+
 pub use error::Error;
 
 // Useful types to help implement EncodeAsType/Fields with:
