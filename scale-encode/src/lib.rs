@@ -147,6 +147,7 @@ mod impls;
 
 pub mod error;
 
+pub use alloc::vec::Vec;
 pub use error::Error;
 
 // Useful types to help implement EncodeAsType/Fields with:
@@ -158,8 +159,6 @@ pub mod ext {
     #[cfg(feature = "primitive-types")]
     pub use primitive_types;
 }
-
-use alloc::vec::Vec;
 
 /// This trait signals that some static type can possibly be SCALE encoded given some
 /// `type_id` and [`PortableRegistry`] which dictates the expected encoding.
