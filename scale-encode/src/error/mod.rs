@@ -140,7 +140,36 @@ impl From<CustomError> for ErrorKind {
 
 impl Display for ErrorKind {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{self:?}")
+        match self {
+            ErrorKind::TypeNotFound(id) => write!(f, "Cannot find type with ID {id}"),
+            ErrorKind::WrongShape { actual, expected } => {
+                write!(f, "Cannot encode {actual:?} into type with ID {expected}")
+            }
+            ErrorKind::WrongLength {
+                actual_len,
+                expected_len,
+            } => {
+                write!(f, "Cannot encode to type; expected length {expected_len} but got length {actual_len}")
+            }
+            ErrorKind::NumberOutOfRange { value, expected } => {
+                write!(
+                    f,
+                    "Number {value} is out of range for target type {expected}"
+                )
+            }
+            ErrorKind::CannotFindVariant { name, expected } => {
+                write!(
+                    f,
+                    "Variant {name} does not exist on type with ID {expected}"
+                )
+            }
+            ErrorKind::CannotFindField { name } => {
+                write!(f, "Field {name} does not exist in our source struct")
+            }
+            ErrorKind::Custom(custom_error) => {
+                write!(f, "Custom error: {custom_error:?}")
+            }
+        }
     }
 }
 
@@ -163,12 +192,6 @@ pub enum Kind {
     Char,
     Str,
     Number,
-}
-
-impl Display for Kind {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{self:?}")
-    }
 }
 
 #[cfg(test)]
